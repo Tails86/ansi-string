@@ -6,4 +6,4 @@ This code was originally written for [greplica](https://pypi.org/project/greplic
 
 ## Examples:
 
-![Examples](docs/examples.jpg)
+![Examples](https://github.com/Tails86/ansi-string/blob/main/docs/examples.jpg?raw=true)

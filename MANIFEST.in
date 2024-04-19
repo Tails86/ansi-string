@@ -1,2 +1,1 @@
-include pyproject.toml
 include *.md
