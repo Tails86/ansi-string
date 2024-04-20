@@ -1078,15 +1078,41 @@ class AnsiString:
         '''
         return self.__format__(None)
 
-    @staticmethod
-    def _re_search(expr, string:str, result):
-        '''
-        Helper method so I can assign and check in the same "if" statement
-        '''
-        match = re.search(expr, string)
+    def _apply_string_format(self, string_format):
+        match = re.search(r'^(.?)<([0-9]*)$', string_format)
         if match:
-            result.append(match)
-        return match
+            # Left justify
+            num = match.group(2)
+            if num:
+                self.ljust(int(num), match.group(1) or ' ', inplace=True)
+            return
+
+        match = re.search(r'^(.?)>([0-9]*)$', string_format)
+        if match:
+            # Right justify
+            num = match.group(2)
+            if num:
+                self.rjust(int(num), match.group(1) or ' ', inplace=True)
+            return
+
+        match = re.search(r'^(.?)\^([0-9]*)$', string_format)
+        if match:
+            # Center
+            num = match.group(2)
+            if num:
+                self.center(int(num), match.group(1) or ' ', inplace=True)
+            return
+
+        match = re.search(r'^[<>\^]?[+-]?[0-9]*$', string_format)
+        if match:
+            raise ValueError('Sign not allowed in string format specifier')
+
+        match = re.search(r'^[<>\^]?[ ]?[0-9]*$', string_format)
+        if match:
+            raise ValueError('Space not allowed in string format specifier')
+
+        raise ValueError('Invalid format specifier')
+
 
     def __format__(self, __format_spec:str) -> str:
         '''
@@ -1100,80 +1126,32 @@ class AnsiString:
             # No formatting
             return self._s
 
+        if __format_spec:
+            # Make a copy
+            obj = copy.deepcopy(self)
+
+            format_parts = __format_spec.split(':', 1)
+
+            if format_parts[0]:
+                # Normal string formatting
+                obj._apply_string_format(format_parts[0])
+
+            if len(format_parts) > 1:
+                # ANSI color/style formatting
+                obj.apply_formatting(format_parts[1])
+        else:
+            # No changes - just copy the reference
+            obj = self
+
         out_str = ''
         last_idx = 0
-        string_format = None
-        ansi_format = None
-        normal_format_str = self._s
-
-        if __format_spec:
-            format_parts = __format_spec.split(':', 1)
-            string_format = format_parts[0]
-            if len(format_parts) > 1:
-                ansi_format = format_parts[1]
-
-        if string_format or ansi_format:
-            # Make a copy
-            settings_dict = copy.deepcopy(self._color_settings)
-        else:
-            settings_dict = self._color_settings
-
-        if string_format:
-            # Normal string formatting
-            result = []
-            if (
-                __class__._re_search(r'^(.?)<([0-9]*)$', string_format, result)
-                or __class__._re_search(r'^()([0-9]*)$', string_format, result)
-            ):
-                # Left justify
-                custom_char = result[0].group(1) or ' '
-                num = result[0].group(2)
-                if num:
-                    num_int = int(num) - len(normal_format_str)
-                    if num_int > 0:
-                        normal_format_str += custom_char * num_int
-                        if len(self._s) in settings_dict:
-                            settings_dict[len(normal_format_str)] = settings_dict.pop(len(self._s))
-            elif __class__._re_search(r'^(.?)>([0-9]*)$', string_format, result):
-                # Right justify
-                custom_char = result[0].group(1) or ' '
-                num = result[0].group(2)
-                if num:
-                    num_int = int(num) - len(normal_format_str)
-                    if num_int > 0:
-                        normal_format_str = custom_char * num_int + normal_format_str
-                        # Shift all indices except for the origin
-                        __class__._shift_settings_idx(settings_dict, num_int, True)
-            elif __class__._re_search(r'^(.?)\^([0-9]*)$', string_format, result):
-                # Center
-                custom_char = result[0].group(1) or ' '
-                num = result[0].group(2)
-                if num:
-                    num_int = int(num) - len(normal_format_str)
-                    if num_int > 0:
-                        left_spaces = math.floor((num_int) / 2)
-                        right_spaces = num_int - left_spaces
-                        normal_format_str = custom_char * left_spaces + normal_format_str + custom_char * right_spaces
-                        # Shift all indices except for the origin
-                        __class__._shift_settings_idx(settings_dict, left_spaces, True)
-            elif __class__._re_search(r'^[<>\^]?[+-]?[0-9]*$', string_format, result):
-                raise ValueError('Sign not allowed in string format specifier')
-            elif __class__._re_search(r'^[<>\^]?[ ]?[0-9]*$', string_format, result):
-                raise ValueError('Space not allowed in string format specifier')
-            else:
-                raise ValueError('Invalid format specifier')
-
-        if ansi_format:
-            format_settings =  __class__.Settings(ansi_format)
-            __class__._insert_settings_to_dict(settings_dict, 0, True, format_settings, True)
-
         clear_needed = False
-        for idx, settings, current_settings in __class__.SettingsIterator(settings_dict):
-            if idx >= len(normal_format_str):
+        for idx, settings, current_settings in __class__.SettingsIterator(obj._color_settings):
+            if idx >= len(obj):
                 # Invalid
                 break
             # Catch up output to current index
-            out_str += normal_format_str[last_idx:idx]
+            out_str += obj._s[last_idx:idx]
             last_idx = idx
 
             settings_to_apply = [str(s) for s in current_settings]
@@ -1187,7 +1165,7 @@ class AnsiString:
             clear_needed = bool(current_settings)
 
         # Final catch up
-        out_str += normal_format_str[last_idx:]
+        out_str += obj._s[last_idx:]
         if clear_needed:
             # Clear settings
             out_str += __class__.ANSI_ESCAPE_CLEAR
@@ -1204,64 +1182,68 @@ class AnsiString:
         cpy._s = cpy._s.casefold()
         return cpy
 
-    def center(self, width:int, fillchar:str=' '):
+    def center(self, width:int, fillchar:str=' ', inplace:bool=False):
         '''
-        Returns center justified copy of string.
+        Center justification.
+        inplace: True to execute in-place; False to return a copy
         '''
-        cpy = copy.deepcopy(self)
-        cpy.icenter(width, fillchar)
-        return cpy
+        if inplace:
+            obj = self
+        else:
+            obj = copy.deepcopy(self)
 
-    def icenter(self, width:int, fillchar:str=' '):
-        '''
-        Center justification in-place.
-        '''
-        old_len = len(self._s)
+        old_len = len(obj._s)
         num = width - old_len
         if num > 0:
             left_spaces = math.floor((num) / 2)
             right_spaces = num - left_spaces
-            self._s = fillchar * left_spaces + self._s + fillchar * right_spaces
-            # Shift all indices except for the origin
-            __class__._shift_settings_idx(self._color_settings, left_spaces, True)
+            obj._s = fillchar * left_spaces + obj._s + fillchar * right_spaces
+            # Move the removal settings from previous end to new end (formats the right fillchars with same as last char)
+            if old_len in obj._color_settings:
+                obj._color_settings[len(obj._s)] = obj._color_settings.pop(old_len)
+            # Shift all indices except for the origin (formats the left fillchars with same as first char)
+            __class__._shift_settings_idx(obj._color_settings, left_spaces, True)
 
-    def ljust(self, width:int, fillchar:str=' '):
-        '''
-        Returns left justified copy of string.
-        '''
-        cpy = copy.deepcopy(self)
-        cpy.iljust(width, fillchar)
-        return cpy
+        return obj
 
-    def iljust(self, width:int, fillchar:str=' '):
+    def ljust(self, width:int, fillchar:str=' ', inplace:bool=False):
         '''
-        Left justification in-place.
+        Left justification.
+        inplace: True to execute in-place; False to return a copy
         '''
-        old_len = len(self._s)
+        if inplace:
+            obj = self
+        else:
+            obj = copy.deepcopy(self)
+
+        old_len = len(obj._s)
         num = width - old_len
         if num > 0:
-            self._s += fillchar * num
-            if old_len in self._color_settings:
-                self._color_settings[len(self._s)] = self._color_settings.pop(old_len)
+            obj._s += fillchar * num
+            # Move the removal settings from previous end to new end (formats the right fillchars with same as last char)
+            if old_len in obj._color_settings:
+                obj._color_settings[len(obj._s)] = obj._color_settings.pop(old_len)
 
-    def rjust(self, width:int, fillchar:str=' '):
-        '''
-        Returns right justified copy of string.
-        '''
-        cpy = copy.deepcopy(self)
-        cpy.irjust(width, fillchar)
-        return cpy
+        return obj
 
-    def irjust(self, width:int, fillchar:str=' '):
+    def rjust(self, width:int, fillchar:str=' ', inplace:bool=False):
         '''
-        Right justification in-place.
+        Right justification.
+        inplace: True to execute in-place; False to return a copy
         '''
-        old_len = len(self._s)
+        if inplace:
+            obj = self
+        else:
+            obj = copy.deepcopy(self)
+
+        old_len = len(obj._s)
         num = width - old_len
         if num > 0:
-            self._s = fillchar * num + self._s
-            # Shift all indices except for the origin
-            __class__._shift_settings_idx(self._color_settings, num, True)
+            obj._s = fillchar * num + obj._s
+            # Shift all indices except for the origin (formats the left fillchars with same as first char)
+            __class__._shift_settings_idx(obj._color_settings, num, True)
+
+        return obj
 
     def count(self, sub:str, start:int, end:int) -> int:
         return self._s.count(sub, start, end)
@@ -1372,12 +1354,26 @@ class AnsiString:
             joint += arg
         return joint
 
-    def lower(self):
-        cpy = copy.deepcopy(self)
-        cpy._s = cpy._s.lower()
-        return cpy
+    def lower(self, inplace:bool=False):
+        '''
+        Convert to lowercase.
+        inplace: True to execute in-place; False to return a copy
+        '''
+        if inplace:
+            obj = self
+        else:
+            obj = copy.deepcopy(self)
+        obj._s = obj._s.lower()
+        return obj
 
-    def upper(self):
-        cpy = copy.deepcopy(self)
-        cpy._s = cpy._s.upper()
-        return cpy
+    def upper(self, inplace:bool=False):
+        '''
+        Convert to uppercase.
+        inplace: True to execute in-place; False to return a copy
+        '''
+        if inplace:
+            obj = self
+        else:
+            obj = copy.deepcopy(self)
+        obj._s = obj._s.lower()
+        return obj

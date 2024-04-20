@@ -132,21 +132,71 @@ class CliTests(unittest.TestCase):
         s=AnsiString('red', 'red')
         self.assertNotEqual(s, AnsiString('red', AnsiFormat.BG_RED))
 
-    def test_ljust(self):
+    def test_center(self):
         s = AnsiString('This string will be formatted bold and red', 'bold;red')
-        s = s.ljust(90, 'X')
+        s2 = s.center(90, 'X')
+        self.assertEqual(
+            str(s2),
+            '\x1b[1;31mXXXXXXXXXXXXXXXXXXXXXXXXThis string will be formatted bold and redXXXXXXXXXXXXXXXXXXXXXXXX\x1b[m'
+        )
+        self.assertIsNot(s, s2)
         self.assertEqual(
             str(s),
-            '\x1b[1;31mThis string will be formatted bold and redXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\x1b[m'
+            '\x1b[1;31mThis string will be formatted bold and red\x1b[m'
         )
 
-    def test_iljust(self):
+    def test_center_inplace(self):
         s = AnsiString('This string will be formatted bold and red', 'bold;red')
-        s.iljust(90, 'X')
+        s2 = s.center(89, 'X', inplace=True)
         self.assertEqual(
-            str(s),
+            str(s2),
+            '\x1b[1;31mXXXXXXXXXXXXXXXXXXXXXXXThis string will be formatted bold and redXXXXXXXXXXXXXXXXXXXXXXXX\x1b[m'
+        )
+        self.assertIs(s, s2)
+
+    def test_ljust(self):
+        s = AnsiString('This string will be formatted bold and red', 'bold;red')
+        s2 = s.ljust(90, 'X')
+        self.assertEqual(
+            str(s2),
             '\x1b[1;31mThis string will be formatted bold and redXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\x1b[m'
         )
+        self.assertIsNot(s, s2)
+        self.assertEqual(
+            str(s),
+            '\x1b[1;31mThis string will be formatted bold and red\x1b[m'
+        )
+
+    def test_ljust_inplace(self):
+        s = AnsiString('This string will be formatted bold and red', 'bold;red')
+        s2 = s.ljust(90, 'X', inplace=True)
+        self.assertEqual(
+            str(s2),
+            '\x1b[1;31mThis string will be formatted bold and redXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\x1b[m'
+        )
+        self.assertIs(s, s2)
+
+    def test_rjust(self):
+        s = AnsiString('This string will be formatted bold and red', 'bold;red')
+        s2 = s.rjust(90, '0')
+        self.assertEqual(
+            str(s2),
+            '\x1b[1;31m000000000000000000000000000000000000000000000000This string will be formatted bold and red\x1b[m'
+        )
+        self.assertIsNot(s, s2)
+        self.assertEqual(
+            str(s),
+            '\x1b[1;31mThis string will be formatted bold and red\x1b[m'
+        )
+
+    def test_rjust_inplace(self):
+        s = AnsiString('This string will be formatted bold and red', 'bold;red')
+        s2 = s.rjust(90, '0', inplace=True)
+        self.assertEqual(
+            str(s2),
+            '\x1b[1;31m000000000000000000000000000000000000000000000000This string will be formatted bold and red\x1b[m'
+        )
+        self.assertIs(s, s2)
 
 if __name__ == '__main__':
     unittest.main()
