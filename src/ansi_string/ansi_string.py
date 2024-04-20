@@ -1030,7 +1030,7 @@ class AnsiString:
         return self.__format__(None)
 
     @staticmethod
-    def _re_search(expr:Union[str, re.Pattern[str]], string:str, result:List[re.Match[str]]) -> Union[re.Match[str], None]:
+    def _re_search(expr:Union[str, "re.Pattern[str]"], string:str, result:List[re.Match[str]]) -> Union[re.Match[str], None]:
         '''
         Helper method so I can assign and check in the same "if" statement
         '''

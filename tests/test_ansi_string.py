@@ -5,6 +5,7 @@ import sys
 import unittest
 from io import BytesIO, StringIO
 from unittest.mock import patch
+import ansi_string
 
 def _is_windows():
     return sys.platform.lower().startswith('win')
