@@ -760,7 +760,7 @@ class AnsiFormat(Enum):
             b=min(255, max(0, b))
 
         if component == ColorComponentType.UNDERLINE:
-            return f'{__class__.UNDERLINE};{__class__.SET_UNDERLINE_COLOR_RGB.value};{r};{g};{b}'
+            return f'{__class__.UNDERLINE.value};{__class__.SET_UNDERLINE_COLOR_RGB.value};{r};{g};{b}'
         elif component == ColorComponentType.BACKGROUND:
             return f'{__class__.BG_SET_RGB.value};{r};{g};{b}'
         else:
