@@ -134,7 +134,15 @@ class CliTests(unittest.TestCase):
 
     def test_ljust(self):
         s = AnsiString('This string will be formatted bold and red', 'bold;red')
-        s.ljust(90, 'X')
+        s = s.ljust(90, 'X')
+        self.assertEqual(
+            str(s),
+            '\x1b[1;31mThis string will be formatted bold and redXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\x1b[m'
+        )
+
+    def test_iljust(self):
+        s = AnsiString('This string will be formatted bold and red', 'bold;red')
+        s.iljust(90, 'X')
         self.assertEqual(
             str(s),
             '\x1b[1;31mThis string will be formatted bold and redXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\x1b[m'

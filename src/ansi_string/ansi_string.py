@@ -1205,23 +1205,63 @@ class AnsiString:
         return cpy
 
     def center(self, width:int, fillchar:str=' '):
+        '''
+        Returns center justified copy of string.
+        '''
         cpy = copy.deepcopy(self)
-        num = width - len(cpy._s)
+        cpy.icenter(width, fillchar)
+        return cpy
+
+    def icenter(self, width:int, fillchar:str=' '):
+        '''
+        Center justification in-place.
+        '''
+        old_len = len(self._s)
+        num = width - old_len
         if num > 0:
             left_spaces = math.floor((num) / 2)
             right_spaces = num - left_spaces
-            cpy._s = fillchar * left_spaces + cpy._s + fillchar * right_spaces
+            self._s = fillchar * left_spaces + self._s + fillchar * right_spaces
             # Shift all indices except for the origin
-            __class__._shift_settings_idx(cpy._color_settings, left_spaces, True)
-        return cpy
+            __class__._shift_settings_idx(self._color_settings, left_spaces, True)
 
     def ljust(self, width:int, fillchar:str=' '):
+        '''
+        Returns left justified copy of string.
+        '''
+        cpy = copy.deepcopy(self)
+        cpy.iljust(width, fillchar)
+        return cpy
+
+    def iljust(self, width:int, fillchar:str=' '):
+        '''
+        Left justification in-place.
+        '''
         old_len = len(self._s)
         num = width - old_len
         if num > 0:
             self._s += fillchar * num
             if old_len in self._color_settings:
                 self._color_settings[len(self._s)] = self._color_settings.pop(old_len)
+
+    def rjust(self, width:int, fillchar:str=' '):
+        '''
+        Returns right justified copy of string.
+        '''
+        cpy = copy.deepcopy(self)
+        cpy.irjust(width, fillchar)
+        return cpy
+
+    def irjust(self, width:int, fillchar:str=' '):
+        '''
+        Right justification in-place.
+        '''
+        old_len = len(self._s)
+        num = width - old_len
+        if num > 0:
+            self._s = fillchar * num + self._s
+            # Shift all indices except for the origin
+            __class__._shift_settings_idx(self._color_settings, num, True)
 
     def count(self, sub:str, start:int, end:int) -> int:
         return self._s.count(sub, start, end)
