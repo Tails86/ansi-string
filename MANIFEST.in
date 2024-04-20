@@ -1,1 +1,3 @@
 include *.md
+include docs/*
+include LICENSE
