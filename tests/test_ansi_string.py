@@ -198,5 +198,68 @@ class CliTests(unittest.TestCase):
         )
         self.assertIs(s, s2)
 
+    def test_strip(self):
+        s = AnsiString('    T\t\r\n \v\f', 'bold;red')
+        s2 = s.strip()
+        self.assertEqual(str(s2), '\x1b[1;31mT\x1b[m')
+        self.assertIsNot(s, s2)
+        self.assertEqual(
+            str(s),
+            '\x1b[1;31m    T\t\r\n \x0b\x0c\x1b[m'
+        )
+
+    def test_strip_inplace(self):
+        s = AnsiString('    T\t\r\n \v\f', 'bold;red')
+        s2 = s.strip(inplace=True)
+        self.assertEqual(str(s2), '\x1b[1;31mT\x1b[m')
+        self.assertIs(s, s2)
+
+    def test_strip_all(self):
+        s = AnsiString('    ', 'bold;red')
+        s2 = s.strip()
+        self.assertEqual(str(s2), '')
+
+    def test_lstrip(self):
+        s = AnsiString('    T\t\r\n \v\f', 'bold;red')
+        s2 = s.lstrip()
+        self.assertEqual(str(s2), '\x1b[1;31mT\t\r\n \v\f\x1b[m')
+        self.assertIsNot(s, s2)
+        self.assertEqual(
+            str(s),
+            '\x1b[1;31m    T\t\r\n \x0b\x0c\x1b[m'
+        )
+
+    def test_lstrip_inplace(self):
+        s = AnsiString('    T\t\r\n \v\f', 'bold;red')
+        s2 = s.lstrip(inplace=True)
+        self.assertEqual(str(s2), '\x1b[1;31mT\t\r\n \v\f\x1b[m')
+        self.assertIs(s, s2)
+
+    def test_lstrip_all(self):
+        s = AnsiString(' \t   ', 'bold;red')
+        s2 = s.lstrip()
+        self.assertEqual(str(s2), '')
+
+    def test_rstrip(self):
+        s = AnsiString('    T\t\r\n \v\f', 'bold;red')
+        s2 = s.rstrip()
+        self.assertEqual(str(s2), '\x1b[1;31m    T\x1b[m')
+        self.assertIsNot(s, s2)
+        self.assertEqual(
+            str(s),
+            '\x1b[1;31m    T\t\r\n \x0b\x0c\x1b[m'
+        )
+
+    def test_rstrip_inplace(self):
+        s = AnsiString('    T\t\r\n \v\f', 'bold;red')
+        s2 = s.rstrip(inplace=True)
+        self.assertEqual(str(s2), '\x1b[1;31m    T\x1b[m')
+        self.assertIs(s, s2)
+
+    def test_rstrip_all(self):
+        s = AnsiString(' \n   ', 'bold;red')
+        s2 = s.rstrip()
+        self.assertEqual(str(s2), '')
+
 if __name__ == '__main__':
     unittest.main()

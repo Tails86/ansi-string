@@ -22,14 +22,15 @@
 
 import sys
 import re
-import copy
 import math
-from enum import Enum, EnumMeta, auto as enum_auto
+from enum import Enum, auto as enum_auto
 import io
 from typing import Any, Union, List
 
-__version__ = '0.1.2'
+__version__ = '0.1.3'
 PACKAGE_NAME = 'ansi-string'
+
+WHITESPACE_CHARS = ' \t\n\r\v\f'
 
 IS_WINDOWS = sys.platform.lower().startswith('win')
 
@@ -930,6 +931,9 @@ class AnsiString:
         '''
         return self._s
 
+    def copy(self):
+        return self[:]
+
     @staticmethod
     def _insert_settings_to_dict(settings_dict:dict, idx:int, apply:bool, settings:Settings, topmost:bool=True):
         if idx not in settings_dict:
@@ -942,9 +946,13 @@ class AnsiString:
 
     @staticmethod
     def _shift_settings_idx(settings_dict:dict, num:int, keep_origin:bool):
+        '''
+        Not fully supported for when num is negative
+        '''
         for key in sorted(settings_dict.keys(), reverse=(num > 0)):
             if not keep_origin or key != 0:
                 new_key = max(key + num, 0)
+                # new_key could be negative when num is negative - TODO: either handle or raise exception
                 settings_dict[new_key] = settings_dict.pop(key)
 
     def _insert_settings(self, idx:int, apply:bool, settings:Settings, topmost:bool=True):
@@ -1038,7 +1046,9 @@ class AnsiString:
             return val
 
     def __getitem__(self, val:Union[int, slice]):
-        ''' Returns a AnsiString object which represents a substring of self '''
+        '''
+        Returns a new AnsiString object which represents a substring of self
+        '''
         if isinstance(val, int):
             st = val
             en = val + 1
@@ -1050,25 +1060,38 @@ class AnsiString:
         else:
             raise TypeError('Invalid type for __getitem__')
 
-        if st == 0 and en == len(self._s):
-            # No need to make substring
-            return self
-
         new_s = AnsiString(self._s[val])
+
+        if not new_s._s:
+            # Special case - string is now empty
+            return new_s
+
         last_settings = []
         settings_initialized = False
         for idx, settings, current_settings in __class__.SettingsIterator(self._color_settings):
-            if idx >= len(self._s) or idx >= en:
+            if idx > len(self._s) or idx > en:
+                if not settings_initialized and len(new_s) > 0 and last_settings:
+                    # Substring was between settings
+                    new_s._color_settings[0] = [last_settings, []]
+                # Because this class supports concatenation, it's necessary to remove all settings before ending
+                if last_settings:
+                    new_len = len(new_s._s)
+                    if new_len in new_s._color_settings:
+                        new_s._color_settings[new_len][1].extend(last_settings)
+                    else:
+                        new_s._color_settings[new_len] = [[], last_settings]
                 # Complete
                 break
             if idx == st:
-                new_s._color_settings[0] = [list(current_settings), []]
+                if current_settings:
+                    new_s._color_settings[0] = [list(current_settings), []]
                 settings_initialized = True
             elif idx > st:
-                if not settings_initialized:
+                if not settings_initialized and idx - st != 0 and last_settings:
                     new_s._color_settings[0] = [last_settings, []]
                     settings_initialized = True
                 new_s._color_settings[idx - st] = [list(settings[0]), list(settings[1])]
+            # It's unfortunately necessary to copy since current_settings ref will change
             last_settings = list(current_settings)
         return new_s
 
@@ -1128,7 +1151,7 @@ class AnsiString:
 
         if __format_spec:
             # Make a copy
-            obj = copy.deepcopy(self)
+            obj = self.copy()
 
             format_parts = __format_spec.split(':', 1)
 
@@ -1173,12 +1196,12 @@ class AnsiString:
         return out_str
 
     def capitalize(self):
-        cpy = copy.deepcopy(self)
+        cpy = self.copy()
         cpy._s = cpy._s.capitalize()
         return cpy
 
     def casefold(self):
-        cpy = copy.deepcopy(self)
+        cpy = self.copy()
         cpy._s = cpy._s.casefold()
         return cpy
 
@@ -1190,7 +1213,7 @@ class AnsiString:
         if inplace:
             obj = self
         else:
-            obj = copy.deepcopy(self)
+            obj = self.copy()
 
         old_len = len(obj._s)
         num = width - old_len
@@ -1214,7 +1237,7 @@ class AnsiString:
         if inplace:
             obj = self
         else:
-            obj = copy.deepcopy(self)
+            obj = self.copy()
 
         old_len = len(obj._s)
         num = width - old_len
@@ -1234,7 +1257,7 @@ class AnsiString:
         if inplace:
             obj = self
         else:
-            obj = copy.deepcopy(self)
+            obj = self.copy()
 
         old_len = len(obj._s)
         num = width - old_len
@@ -1255,7 +1278,7 @@ class AnsiString:
         return self._s.endswith(suffix, start, end)
 
     def expandtabs(self, tabsize:int=8):
-        cpy = copy.deepcopy(self)
+        cpy = self.copy()
         cpy._s = cpy._s.expandtabs(tabsize)
         return cpy
 
@@ -1302,7 +1325,7 @@ class AnsiString:
         return self._s.isupper()
 
     def __add__(self, value):
-        cpy = copy.deepcopy(self)
+        cpy = self.copy()
         cpy += value
         return cpy
 
@@ -1310,7 +1333,8 @@ class AnsiString:
         if isinstance(value, str):
             self._s += value
         elif isinstance(value, AnsiString):
-            settings_cpy = copy.deepcopy(value._color_settings)
+            value_cpy = value.copy()
+            settings_cpy = value_cpy._color_settings
             __class__._shift_settings_idx(settings_cpy, len(self._s), False)
             self._s += value._s
             for key, value in settings_cpy.items():
@@ -1347,7 +1371,7 @@ class AnsiString:
         if isinstance(first_arg, str):
             joint = AnsiString(first_arg)
         elif isinstance(first_arg, AnsiString):
-            joint = copy.deepcopy(first_arg)
+            joint = first_arg.copy()
         else:
             raise ValueError(f'value is invalid type: {type(first_arg)}')
         for arg in args[1:]:
@@ -1362,7 +1386,7 @@ class AnsiString:
         if inplace:
             obj = self
         else:
-            obj = copy.deepcopy(self)
+            obj = self.copy()
         obj._s = obj._s.lower()
         return obj
 
@@ -1374,6 +1398,71 @@ class AnsiString:
         if inplace:
             obj = self
         else:
-            obj = copy.deepcopy(self)
+            obj = self.copy()
         obj._s = obj._s.lower()
         return obj
+
+    def lstrip(self, chars:str=None, inplace:bool=False):
+        '''
+        Remove leading whitespace
+        chars: If not None, remove characters in chars instead
+        inplace: True to execute in-place; False to return a copy
+        '''
+        return self._strip(chars=chars, inplace=inplace, do_lstrip=True, do_rstrip=False)
+
+    def rstrip(self, chars:str=None, inplace:bool=False):
+        '''
+        Remove trailing whitespace
+        chars: If not None, remove characters in chars instead
+        inplace: True to execute in-place; False to return a copy
+        '''
+        return self._strip(chars=chars, inplace=inplace, do_lstrip=False, do_rstrip=True)
+
+    def strip(self, chars:str=None, inplace:bool=False):
+        '''
+        Remove leading and trailing whitespace
+        chars: If not None, remove characters in chars instead
+        inplace: True to execute in-place; False to return a copy
+        '''
+        return self._strip(chars=chars, inplace=inplace, do_lstrip=True, do_rstrip=True)
+
+    def _strip(self, chars:str=None, inplace:bool=False, do_lstrip:bool=True, do_rstrip:bool=True):
+        '''
+        Remove leading and trailing whitespace
+        chars: If not None, remove characters in chars instead
+        inplace: True to execute in-place; False to return a copy
+        '''
+        if chars is None:
+            chars = WHITESPACE_CHARS
+
+        lcount = 0
+        if do_lstrip:
+            for char in self._s:
+                if char in chars:
+                    lcount += 1
+                else:
+                    break
+
+        rcount = None
+        if do_rstrip and lcount < len (self._s):
+            rcount = 0
+            for char in reversed(self._s):
+                if char in chars:
+                    rcount -= 1
+                else:
+                    break
+            if rcount == 0:
+                rcount = None
+
+        if inplace and lcount == 0 and rcount is None:
+            return self
+
+        # This is always going to create a copy - no good way to modify settings while iterating over it
+        obj = self[lcount:rcount]
+
+        if inplace:
+            self._s = obj._s
+            self._color_settings = obj._color_settings
+            return self
+        else:
+            return obj
