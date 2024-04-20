@@ -914,6 +914,8 @@ class AnsiString:
         # Each value element is a list of 2 lists
         #   index 0: the settings to apply at this string index
         #   index 1: the settings to remove at this string index
+        # TODO: it likely makes sense to create a separate class to maintain setting lists. This map of lists gets
+        #       really difficult to read!
         self._color_settings = {}
         if setting_or_settings:
             self.apply_formatting(setting_or_settings)
@@ -1029,7 +1031,15 @@ class AnsiString:
                 # setting object will only be matched and removed if it is the same reference to one
                 # previously added - will raise exception otherwise which should not happen if the
                 # settings dictionary and this method were setup correctly.
-                self.current_settings.remove(setting)
+                remove_idx = None
+                for i, s in enumerate(self.current_settings):
+                    if s is setting:
+                        remove_idx = i
+                        break
+                if remove_idx is not None:
+                    del self.current_settings[remove_idx]
+                else:
+                    raise ValueError('could not remove setting: not in list')
             # Apply settings that it is time to add
             self.current_settings += settings[AnsiString.SETTINGS_APPLY_IDX]
             return (idx, settings, self.current_settings)
@@ -1047,7 +1057,9 @@ class AnsiString:
 
     def __getitem__(self, val:Union[int, slice]):
         '''
-        Returns a new AnsiString object which represents a substring of self
+        Returns a new AnsiString object which represents a substring of self.
+        Note: the new copy may contain some references to settings in the origin. This is ok since the value of each
+              setting is not internally modified after creation.
         '''
         if isinstance(val, int):
             st = val
@@ -1091,7 +1103,7 @@ class AnsiString:
                     new_s._color_settings[0] = [last_settings, []]
                     settings_initialized = True
                 new_s._color_settings[idx - st] = [list(settings[0]), list(settings[1])]
-            # It's unfortunately necessary to copy since current_settings ref will change
+            # It's necessary to copy (i.e. call list()) since current_settings ref will change on next loop
             last_settings = list(current_settings)
         return new_s
 
