@@ -782,9 +782,9 @@ class AnsiString:
 
     Example 3:
     s = AnsiString('This string contains multiple color settings across different ranges')
-    s.apply_formatting(AnsiFormat.BOLD, 5, 6)
-    s.apply_formatting(AnsiFormat.BG_BLUE, 21, 8)
-    s.apply_formatting([AnsiFormat.FG_ORANGE, AnsiFormat.ITALIC], 21, 14)
+    s.apply_formatting(AnsiFormat.BOLD, 5, 11)
+    s.apply_formatting(AnsiFormat.BG_BLUE, 21, 29)
+    s.apply_formatting([AnsiFormat.FG_ORANGE, AnsiFormat.ITALIC], 21, 35)
     print(s)
 
     Example 4:
