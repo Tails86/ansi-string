@@ -63,6 +63,13 @@ class CliTests(unittest.TestCase):
             'across different ranges'
         )
 
+    def test_format_right_only(self):
+        s = AnsiString('This has no ANSI formatting')
+        self.assertEqual(
+            f'{s:#>90}',
+            '###############################################################This has no ANSI formatting'
+        )
+
     def test_format_right_justify_and_int(self):
         s = AnsiString('This string will be formatted bold and red, right justify')
         self.assertEqual(
@@ -99,6 +106,22 @@ class CliTests(unittest.TestCase):
         self.assertEqual(
             f'{s::rgb({fg_color});bg_rgb({bg_colors});ul_rgb({ul_colors})}',
             '\x1b[38;2;138;43;226;48;2;100;232;170;4;58;2;255;99;71mManually adjust colors of foreground, background, and underline\x1b[m'
+        )
+
+    def test_add(self):
+        s = AnsiString('bold', 'bold') + AnsiString('red', 'red')
+        self.assertEqual(
+            str(s),
+            '\x1b[1mbold\x1b[0;31mred\x1b[m'
+        )
+
+    def test_iadd(self):
+        s = AnsiString('part bold')
+        s.apply_formatting(AnsiFormat.BOLD, 0, 3)
+        s += AnsiString('red', 'red')
+        self.assertEqual(
+            str(s),
+            '\x1b[1mpar\x1b[mt bold\x1b[31mred\x1b[m'
         )
 
 if __name__ == '__main__':

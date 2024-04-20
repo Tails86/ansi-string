@@ -969,21 +969,15 @@ class AnsiString:
             return
 
         if end is None:
-            length = None
-        else:
-            length = end - start
-            if length <= 0:
-                # Ignore - nothing to apply
-                return
+            end = len(self._s)
 
         settings = __class__.Settings(setting_or_settings)
 
         # Apply settings
         self._insert_settings(start, True, settings, topmost)
 
-        if length is not None:
-            # Remove settings
-            self._insert_settings(start + length, False, settings, topmost)
+        # Remove settings
+        self._insert_settings(end, False, settings, topmost)
 
     def apply_formatting_for_match(
             self,
@@ -1282,8 +1276,12 @@ class AnsiString:
             settings_cpy = copy.deepcopy(value._color_settings)
             __class__._shift_settings_idx(settings_cpy, len(self._s), False)
             self._s += value._s
-            for key, value in settings_cpy.values():
-                self._color_settings[key] = value
+            for key, value in settings_cpy.items():
+                if key in self._color_settings:
+                    self._color_settings[key][0].extend(value[0])
+                    self._color_settings[key][1].extend(value[1])
+                else:
+                    self._color_settings[key] = value
         else:
             raise ValueError(f'value is invalid type: {type(value)}')
         return self
