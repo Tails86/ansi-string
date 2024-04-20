@@ -28,7 +28,7 @@ from enum import Enum, EnumMeta, auto as enum_auto
 import io
 from typing import Any, Union, List
 
-__version__ = '0.1.0'
+__version__ = '0.1.1'
 PACKAGE_NAME = 'ansi-string'
 
 IS_WINDOWS = sys.platform.lower().startswith('win')
