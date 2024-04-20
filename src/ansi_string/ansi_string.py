@@ -835,6 +835,11 @@ class AnsiString:
 
             self._str = ';'.join(settings)
 
+        def __eq__(self, value) -> bool:
+            if not isinstance(value, AnsiString.Settings):
+                return False
+            return self._str == value._str
+
         @staticmethod
         def _parse_rgb_string(s:str):
             component_dict = {
@@ -1127,6 +1132,8 @@ class AnsiString:
                     num_int = int(num) - len(normal_format_str)
                     if num_int > 0:
                         normal_format_str += custom_char * num_int
+                        if len(self._s) in settings_dict:
+                            settings_dict[len(normal_format_str)] = settings_dict.pop(len(self._s))
             elif __class__._re_search(r'^(.?)>([0-9]*)$', string_format, result):
                 # Right justify
                 custom_char = result[0].group(1) or ' '
@@ -1208,6 +1215,14 @@ class AnsiString:
             __class__._shift_settings_idx(cpy._color_settings, left_spaces, True)
         return cpy
 
+    def ljust(self, width:int, fillchar:str=' '):
+        old_len = len(self._s)
+        num = width - old_len
+        if num > 0:
+            self._s += fillchar * num
+            if old_len in self._color_settings:
+                self._color_settings[len(self._s)] = self._color_settings.pop(old_len)
+
     def count(self, sub:str, start:int, end:int) -> int:
         return self._s.count(sub, start, end)
 
@@ -1286,6 +1301,21 @@ class AnsiString:
             raise ValueError(f'value is invalid type: {type(value)}')
         return self
 
+    def __eq__(self, value) -> bool:
+        if not isinstance(value, AnsiString):
+            return False
+        return self._s == value._s and self._color_settings == value._color_settings
+
+    def __contains__(self, value) -> bool:
+        if isinstance(value, str):
+            return value in self._s
+        elif isinstance(value, AnsiString):
+            return value._s in self._s
+        return False
+
+    def __len__(self) -> int:
+        return len(self._s)
+
     @staticmethod
     def join(*args):
         if not args:
@@ -1301,3 +1331,13 @@ class AnsiString:
         for arg in args[1:]:
             joint += arg
         return joint
+
+    def lower(self):
+        cpy = copy.deepcopy(self)
+        cpy._s = cpy._s.lower()
+        return cpy
+
+    def upper(self):
+        cpy = copy.deepcopy(self)
+        cpy._s = cpy._s.upper()
+        return cpy

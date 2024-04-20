@@ -78,9 +78,9 @@ class CliTests(unittest.TestCase):
         )
 
     def test_format_left_justify_and_strings(self):
-        s = AnsiString('This string will be formatted bold and red')
+        s = AnsiString('This string will be formatted bold and red', 'bold')
         self.assertEqual(
-            '{:+<90:bold;fg_red}'.format(s),
+            '{:+<90:fg_red}'.format(s),
             '\x1b[1;31mThis string will be formatted bold and red++++++++++++++++++++++++++++++++++++++++++++++++\x1b[m'
         )
 
@@ -122,6 +122,22 @@ class CliTests(unittest.TestCase):
         self.assertEqual(
             str(s),
             '\x1b[1mpar\x1b[mt bold\x1b[31mred\x1b[m'
+        )
+
+    def test_eq(self):
+        s=AnsiString('red', 'red')
+        self.assertEqual(s, AnsiString('red', AnsiFormat.FG_RED))
+
+    def test_neq(self):
+        s=AnsiString('red', 'red')
+        self.assertNotEqual(s, AnsiString('red', AnsiFormat.BG_RED))
+
+    def test_ljust(self):
+        s = AnsiString('This string will be formatted bold and red', 'bold;red')
+        s.ljust(90, 'X')
+        self.assertEqual(
+            str(s),
+            '\x1b[1;31mThis string will be formatted bold and redXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\x1b[m'
         )
 
 if __name__ == '__main__':
