@@ -27,7 +27,7 @@ from enum import Enum, auto as enum_auto
 import io
 from typing import Any, Union, List, Dict, Tuple
 
-__version__ = '0.1.3'
+__version__ = '1.0.0'
 PACKAGE_NAME = 'ansi-string'
 
 WHITESPACE_CHARS = ' \t\n\r\v\f'
