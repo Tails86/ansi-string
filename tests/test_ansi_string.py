@@ -101,10 +101,10 @@ class CliTests(unittest.TestCase):
     def test_no_format_and_rgb_functions2(self):
         s = AnsiString('Manually adjust colors of foreground, background, and underline')
         fg_color = 0x8A2BE2
-        bg_colors = [100, 232, 170]
+        bg_colors = (100, 232, 170)
         ul_colors = [0xFF, 0x63, 0x47]
         self.assertEqual(
-            f'{s::rgb({fg_color});bg_rgb({bg_colors});ul_rgb({ul_colors})}',
+            f'{s::rgb({fg_color});bg_rgb{bg_colors};ul_rgb({ul_colors})}',
             '\x1b[38;2;138;43;226;48;2;100;232;170;4;58;2;255;99;71mManually adjust colors of foreground, background, and underline\x1b[m'
         )
 
@@ -440,6 +440,38 @@ class CliTests(unittest.TestCase):
         s = AnsiString.join('This ', AnsiString('string', AnsiFormat.ORANGE), ' contains ')
         s = s + AnsiString('multiple', AnsiFormat.BG_BLUE)
         self.assertEqual(str(s), 'This \x1b[38;5;214mstring\x1b[m contains \x1b[44mmultiple\x1b[m')
+
+    def test_format_matching(self):
+        s = AnsiString('Here is a string that I will match formatting')
+        s.format_matching('InG', 'cyan', AnsiFormat.BG_PINK)
+        self.assertEqual(
+            str(s),
+            'Here is a str\x1b[36;48;2;255;192;203ming\x1b[m that I will match formatt\x1b[36;48;2;255;192;203ming\x1b[m'
+        )
+
+    def test_format_matching_ensure_escape(self):
+        s = AnsiString('Here is a (string) that I will match formatting')
+        s.format_matching('(string)', 'cyan', AnsiFormat.BG_PINK)
+        self.assertEqual(
+            str(s),
+            'Here is a \x1b[36;48;2;255;192;203m(string)\x1b[m that I will match formatting'
+        )
+
+    def test_format_matching_case_sensitive(self):
+        s = AnsiString('Here is a strING that I will match formatting')
+        s.format_matching('ing', 'cyan', AnsiFormat.BG_PINK, match_case=True)
+        self.assertEqual(
+            str(s),
+            'Here is a strING that I will match formatt\x1b[36;48;2;255;192;203ming\x1b[m'
+        )
+
+    def test_format_matching_regex_match_case(self):
+        s = AnsiString('Here is a strING that I will match formatting')
+        s.format_matching('[A-Za-z]+ing', 'cyan', AnsiFormat.BG_PINK, regex=True, match_case=True)
+        self.assertEqual(
+            str(s),
+            'Here is a strING that I will match \x1b[36;48;2;255;192;203mformatting\x1b[m'
+        )
 
 
 if __name__ == '__main__':

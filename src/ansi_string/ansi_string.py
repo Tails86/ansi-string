@@ -27,7 +27,7 @@ from enum import Enum, auto as enum_auto
 import io
 from typing import Any, Union, List, Dict, Tuple
 
-__version__ = '1.0.0'
+__version__ = '1.0.1'
 PACKAGE_NAME = 'ansi-string'
 
 WHITESPACE_CHARS = ' \t\n\r\v\f'
@@ -1068,6 +1068,20 @@ class AnsiString:
         s = match_object.start(group)
         e = match_object.end(group)
         self.apply_formatting(setting_or_settings, s, e)
+
+    def format_matching(self, matchspec:str, *format, regex:bool=False, match_case=False):
+        '''
+        Apply formatting for anything matching the matchspec
+        matchspec: the string to match
+        format: 0 to many format specifiers
+        regex: set to True to treat matchspec as a regex string
+        match_case: set to True to make matching case-sensitive (false by default)
+        '''
+        if not regex:
+            matchspec = re.escape(matchspec)
+
+        for match in re.finditer(matchspec, self._s, re.IGNORECASE if not match_case else 0):
+            self.apply_formatting_for_match(format, match)
 
     def clear_formatting(self):
         '''
