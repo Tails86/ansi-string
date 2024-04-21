@@ -34,14 +34,14 @@ from ansi_string import en_tty_ansi, AnsiFormat, AnsiString
 
 The AnsiString class contains the following `__init__` method. The first argument, `s`, is a string to be formatted. The next 0 to N arguments are formatting directives that can be applied to the entire string. These arguments can be in the form of any of the following:
 - A string color name for a formatting directive (i.e. any name of the AnsiFormat enum in lower or upper case)
-- An AnsiFormat directive (ex: `AnsiFormat.BOOL`)
+- An AnsiFormat directive (ex: `AnsiFormat.BOLD`)
 - An rgb() function directive as a string (ex: `"rgb(255, 255, 255)"`)
     - rgb() or fg_rgb() to adjust text color
     - bg_rgb() to adjust background color
     - ul_rgb() to enable underline and set the underline color
     - Value given may be either a 24-bit value or 3 x 8-bit values, separated by commas
     - Each given value within the parenthesis is treated as a hexadecimal value if it starts with "0x", otherwise it will be treated as a decimal value
-- A string containing known ANSI directives (ex: "01;31" for BOLD and FG_RED)
+- A string containing known ANSI directives (ex: `"01;31"` for BOLD and FG_RED)
     - The string will normally be parsed and verified unless the character "[" is the first character of the string
 - A single ANSI directive as an integer
 
