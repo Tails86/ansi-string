@@ -369,6 +369,16 @@ class CliTests(unittest.TestCase):
         c = a + b
         self.assertEqual(str(c), '\x1b[31mab\x1b[m')
 
+    def test_cat_edge_case2(self):
+        # The beginning of the RHS string contains the same formatting of the LHS string, but ends before last char
+        a = AnsiString('abc', 'red')
+        a.apply_formatting('bold')
+        b = AnsiString('xyz')
+        b.apply_formatting('red', end=-2)
+        b.apply_formatting('bold', end=-1)
+        c = a + b
+        self.assertEqual(str(c), '\x1b[31;1mabcx\x1b[0;1my\x1b[mz')
+
     def test_replace(self):
         s=AnsiString('This string will be formatted italic and purple', ['purple', 'italic'])
         s.replace('formatted', AnsiString('formatted', 'bg_red'), inplace=True)

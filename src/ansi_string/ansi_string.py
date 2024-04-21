@@ -1019,12 +1019,12 @@ class AnsiString:
         Note: The desired effect may not be achieved if the same setting is applied over an
               overlapping range of characters.
         '''
-        if not setting_or_settings or start >= len(self._s):
+        start = self._slice_val_to_idx(start, 0)
+        end = self._slice_val_to_idx(end, len(self._s))
+
+        if not setting_or_settings or start >= len(self._s) or end <= start:
             # Ignore - nothing to apply
             return
-
-        if end is None:
-            end = len(self._s)
 
         settings = __class__.Settings(setting_or_settings)
 
