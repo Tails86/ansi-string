@@ -972,7 +972,7 @@ class AnsiString:
         # Unpack settings
         settings = []
         for sos in setting_or_settings:
-            if not isinstance(sos, list):
+            if not isinstance(sos, list) and not isinstance(sos, tuple):
                 settings.append(sos)
             else:
                 settings += sos
@@ -1700,3 +1700,65 @@ class AnsiString:
 
     def rindex(self, sub:str, start:int=None, end:int=None) -> int:
         return self._s.rindex(sub, start, end)
+
+    def _split(self, sep:Union[str,None]=None, maxsplit:int=-1, r:bool=False) -> List['AnsiString']:
+        if r:
+            str_splits = self._s.rsplit(sep, maxsplit)
+        else:
+            str_splits = self._s.split(sep, maxsplit)
+        split_idx_len = []
+        idx = 0
+        for s in str_splits:
+            idx = self._s.find(s, idx)
+            split_idx_len.append((idx, len(s)))
+            idx += len(s)
+
+        ansi_str_splits = []
+        for idx, length in split_idx_len:
+            ansi_str_splits.append(self[idx:idx+length])
+
+        return ansi_str_splits
+
+    def split(self, sep:Union[str,None]=None, maxsplit:int=-1) -> List['AnsiString']:
+        return self._split(sep, maxsplit, False)
+
+    def rsplit(self, sep:Union[str,None]=None, maxsplit:int=-1) -> List['AnsiString']:
+        return self._split(sep, maxsplit, True)
+
+    def splitlines(self, keepends:bool=False) -> List['AnsiString']:
+        str_splits = self._s.splitlines(keepends)
+        split_idx_len = []
+        idx = 0
+        for s in str_splits:
+            idx = self._s.find(s, idx)
+            split_idx_len.append((idx, len(s)))
+            idx += len(s)
+
+        ansi_str_splits = []
+        for idx, length in split_idx_len:
+            ansi_str_splits.append(self[idx:idx+length])
+
+        return ansi_str_splits
+
+    def swapcase(self, inplace:bool=False) -> 'AnsiString':
+        if inplace:
+            obj = self
+        else:
+            obj = self.copy()
+
+        obj._s = obj._s.swapcase()
+
+        return obj
+
+    def title(self, inplace:bool=False) -> 'AnsiString':
+        if inplace:
+            obj = self
+        else:
+            obj = self.copy()
+
+        obj._s = obj._s.title()
+
+        return obj
+
+    def zfill(self, width:int, inplace:bool=False) -> 'AnsiString':
+        return self.rjust(width, "0", inplace)

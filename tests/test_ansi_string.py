@@ -198,6 +198,15 @@ class CliTests(unittest.TestCase):
         )
         self.assertIs(s, s2)
 
+    def test_zfill_inplace(self):
+        s = AnsiString('This string will be formatted bold and red', 'bold;red')
+        s2 = s.zfill(90, inplace=True)
+        self.assertEqual(
+            str(s2),
+            '\x1b[1;31m000000000000000000000000000000000000000000000000This string will be formatted bold and red\x1b[m'
+        )
+        self.assertIs(s, s2)
+
     def test_strip(self):
         s = AnsiString('    T\t\r\n \v\f', 'bold;red')
         s2 = s.strip()
@@ -382,6 +391,50 @@ class CliTests(unittest.TestCase):
         s=AnsiString('This string will be formatted italic and purple', ['purple', 'italic'])
         s.replace('formatted', AnsiString('formatted', 'bg_red'), inplace=True)
         self.assertEqual(str(s), '\x1b[38;5;90;3mThis string will be \x1b[0;41mformatted\x1b[0;38;5;90;3m italic and purple\x1b[m')
+
+    def test_split_whitespace(self):
+        s = AnsiString('\t this  \t\nstring contains\tmany\r\n\f\vspaces ', 'red', 'bold')
+        splits = s.split()
+        self.assertEqual(
+            [str(s) for s in splits],
+            ['\x1b[31;1mthis\x1b[m','\x1b[31;1mstring\x1b[m','\x1b[31;1mcontains\x1b[m','\x1b[31;1mmany\x1b[m','\x1b[31;1mspaces\x1b[m']
+        )
+
+    def test_split_colon(self):
+        s = AnsiString(':::this string: contains : colons:::', 'red', 'bold')
+        splits = s.split(':')
+        self.assertEqual(
+            [str(s) for s in splits],
+            ['', '', '', '\x1b[31;1mthis string\x1b[m', '\x1b[31;1m contains \x1b[m', '\x1b[31;1m colons\x1b[m', '', '', '']
+        )
+
+    def test_rsplit(self):
+        s = AnsiString(':::this string: contains : colons', 'red', 'bold')
+        splits = s.rsplit(':', 1)
+        self.assertEqual(
+            [str(s) for s in splits],
+            ['\x1b[31;1m:::this string: contains \x1b[m', '\x1b[31;1m colons\x1b[m']
+        )
+
+    def test_splitlines(self):
+        s = AnsiString('\nthis string\ncontains\nmany lines\n\n\n', 'red', 'bold')
+        splits = s.splitlines()
+        self.assertEqual(
+            [str(s) for s in splits],
+            ['', '\x1b[31;1mthis string\x1b[m', '\x1b[31;1mcontains\x1b[m', '\x1b[31;1mmany lines\x1b[m', '', '']
+        )
+
+    def test_seapcase_inplace(self):
+        s = AnsiString('SwApCaSe', 'red', 'bold')
+        s.swapcase(inplace=True)
+        self.assertEqual(str(s), '\x1b[31;1msWaPcAsE\x1b[m')
+
+    def test_title(self):
+        s = AnsiString('make this String a title for some book', 'red', 'bold')
+        s2 = s.title(inplace=False)
+        self.assertEqual(str(s2), '\x1b[31;1mMake This String A Title For Some Book\x1b[m')
+        self.assertEqual(str(s), '\x1b[31;1mmake this String a title for some book\x1b[m')
+
 
 if __name__ == '__main__':
     unittest.main()
