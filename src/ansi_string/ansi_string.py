@@ -931,6 +931,13 @@ class AnsiString:
                 return value.add == self.add and value.rem == self.rem
             return False
 
+        def insert_settings(self, apply:bool, settings:'AnsiString.Settings', topmost:bool=True):
+            lst = self.add if apply else self.rem
+            if topmost:
+                lst.append(settings)
+            else:
+                lst.insert(0, settings)
+
     def __init__(self, s:str='', *setting_or_settings:Union[List[str], str, List[int], int, List[AnsiFormat], AnsiFormat]):
         self._s = s
         # Key is the string index to make a color change at
@@ -975,16 +982,6 @@ class AnsiString:
         return self[:]
 
     @staticmethod
-    def _insert_settings_to_dict(settings_dict:Dict[int,'AnsiString.SettingPoint'], idx:int, apply:bool, settings:Settings, topmost:bool=True):
-        if idx not in settings_dict:
-            settings_dict[idx] = __class__.SettingPoint()
-        lst = settings_dict[idx].add if apply else settings_dict[idx].rem
-        if topmost:
-            lst.append(settings)
-        else:
-            lst.insert(0, settings)
-
-    @staticmethod
     def _shift_settings_idx(settings_dict:Dict[int,'AnsiString.SettingPoint'], num:int, keep_origin:bool):
         '''
         Not fully supported for when num is negative
@@ -996,7 +993,9 @@ class AnsiString:
                 settings_dict[new_key] = settings_dict.pop(key)
 
     def _insert_settings(self, idx:int, apply:bool, settings:Settings, topmost:bool=True):
-        __class__._insert_settings_to_dict(self._color_settings, idx, apply, settings, topmost)
+        if idx not in self._color_settings:
+            self._color_settings[idx] = __class__.SettingPoint()
+        self._color_settings[idx].insert_settings(apply, settings, topmost)
 
     def apply_formatting(
             self,
@@ -1404,40 +1403,6 @@ class AnsiString:
     def isupper(self) -> bool:
         return self._s.isupper()
 
-    def simplify_settings(self):
-        '''
-        Attempts to simplify ANSI formatting settings by removing redundant parameters. This does nothing to interrogate
-        custom formatting strings that were applied using "[" string prefix.
-        '''
-        previous_settings = [[],[]]
-        for idx, settings, current_settings in __class__.SettingsIterator(self._color_settings):
-            apply_list_original = list(settings.add)
-
-            # Remove settings that are redundantly reapplied
-            self._color_settings[idx].add = [
-                s for s in settings.add if s not in previous_settings
-            ]
-
-            # Remove settings that are being applied and removed within the same index
-            remove_list = settings.rem
-            self._color_settings[idx].add = [
-                v for v in settings.add if v not in remove_list
-            ]
-            self._color_settings[idx].rem = [
-                v for v in settings.rem if v not in apply_list_original
-            ]
-
-            # Save for next loop
-            previous_settings = list(current_settings)
-
-        # Remove now empty indices
-        for idx in list(self._color_settings.keys()):
-            if (
-                not self._color_settings[idx].add
-                and not self._color_settings[idx].rem
-            ):
-                del self._color_settings[idx]
-
     def __add__(self, value:Union[str,'AnsiString']) -> 'AnsiString':
         cpy = self.copy()
         cpy += value
@@ -1456,7 +1421,6 @@ class AnsiString:
                     self._color_settings[key].rem.extend(value.rem)
                 else:
                     self._color_settings[key] = value
-            self.simplify_settings()
         else:
             raise ValueError(f'value is invalid type: {type(value)}')
         return self

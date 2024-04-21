@@ -314,8 +314,12 @@ class CliTests(unittest.TestCase):
         # Recreate the original string by iterating the characters
         for c in s:
             s2 += c
-        # Should have created a whole new copy of the original
-        self.assertEqual(str(s), str(s2))
+        # This will look the same, even though each character now has formatting
+        self.assertEqual(
+            str(s2),
+            '\x1b[43mo\x1b[0;43mn\x1b[0;43me\x1b[0;43m \x1b[0;4mt\x1b[0;4mw\x1b[0;4mo\x1b[0;4m \x1b[0;1mt\x1b[0;1mh'
+            '\x1b[0;1mr\x1b[0;1me\x1b[0;1me\x1b[m'
+        )
         self.assertIsNot(s, s2)
 
     def test_apply_string_equal_length(self):
@@ -361,6 +365,11 @@ class CliTests(unittest.TestCase):
         self.assertEqual(str(s), '\x1b[14mblah blah\x1b[m')
         self.assertIsNot(s, s2)
 
+    def test_cat_edge_case(self):
+        a = AnsiString('a', 'red')
+        b = AnsiString('b', 'red')
+        c = a + b
+        self.assertEqual(str(c), '\x1b[31ma\x1b[0;31mb\x1b[m')
 
 
 if __name__ == '__main__':
