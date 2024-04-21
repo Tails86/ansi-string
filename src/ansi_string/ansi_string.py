@@ -25,7 +25,7 @@ import re
 import math
 from enum import Enum, auto as enum_auto
 import io
-from typing import Any, Union, List
+from typing import Any, Union, List, Dict, Tuple
 
 __version__ = '0.1.3'
 PACKAGE_NAME = 'ansi-string'
@@ -739,7 +739,12 @@ class AnsiFormat(Enum):
     UL_DARK_SLATE_GRAY=f'{UNDERLINE};{SET_UNDERLINE_COLOR_RGB};47;79;79'
 
     @staticmethod
-    def rgb(r_or_rgb:int, g:Union[int,None]=None, b:Union[int,None]=None, component:ColorComponentType=ColorComponentType.FOREGROUND):
+    def rgb(
+        r_or_rgb:int,
+        g:Union[int,None]=None,
+        b:Union[int,None]=None,
+        component:ColorComponentType=ColorComponentType.FOREGROUND
+    ) -> str:
         '''
         Generates a FG or BG ANSI sequence for the given RGB values.
         r_or_rgb: Either an 8-bit red component or the full 24-bit RGB value
@@ -808,13 +813,6 @@ class AnsiString:
     # The escape sequence which will clear all previous formatting (empty command is same as 0)
     ANSI_ESCAPE_CLEAR = ANSI_ESCAPE_FORMAT.format('')
 
-    # Number of elements in each value of _color_settings dict
-    SETTINGS_ITEM_LIST_LEN = 2
-    # Index of _color_settings value list which contains settings to apply
-    SETTINGS_APPLY_IDX = 0
-    # Index of _color_settings value list which contains settings to remove
-    SETTINGS_REMOVE_IDX = 1
-
     # This isn't in AnsiFormat because it shouldn't be used externally
     RESET = '0'
 
@@ -822,7 +820,7 @@ class AnsiString:
         '''
         Internal use only - mainly used to create a unique objects which may contain same strings
         '''
-        def __init__(self, *setting_or_settings:Union[List[str], str, List[AnsiFormat], AnsiFormat]):
+        def __init__(self, *setting_or_settings:Union[List[str], str, List[int], int, List[AnsiFormat], AnsiFormat]):
             settings = []
             for sos in setting_or_settings:
                 if not isinstance(sos, list):
@@ -849,7 +847,7 @@ class AnsiString:
             return False
 
         @staticmethod
-        def _parse_rgb_string(s:str):
+        def _parse_rgb_string(s:str) -> str:
             component_dict = {
                 'ul_': ColorComponentType.UNDERLINE,
                 'bg_': ColorComponentType.BACKGROUND,
@@ -878,7 +876,7 @@ class AnsiString:
             return None
 
         @staticmethod
-        def _scrub_ansi_format_string(ansi_format):
+        def _scrub_ansi_format_string(ansi_format:str) -> str:
             if ansi_format.startswith("["):
                 # Use the rest of the string as-is for settings
                 return ansi_format[1:]
@@ -916,10 +914,24 @@ class AnsiString:
                             format_settings_strs.append(rgb_format)
                 return ';'.join(format_settings_strs)
 
-        def __str__(self):
+        def __str__(self) -> str:
             return self._str
 
-    def __init__(self, s:str='', *setting_or_settings:Union[List[str], str, List[AnsiFormat], AnsiFormat]):
+    class SettingPoint:
+        def __init__(
+            self,
+            add:Union[List['AnsiString.Settings'],None]=None,
+            rem:Union[List['AnsiString.Settings'],None]=None
+        ):
+            self.add:List[AnsiString.Settings] = add or []
+            self.rem:List[AnsiString.Settings] = rem or []
+
+        def __eq__(self, value) -> bool:
+            if isinstance(value, AnsiString.SettingPoint):
+                return value.add == self.add and value.rem == self.rem
+            return False
+
+    def __init__(self, s:str='', *setting_or_settings:Union[List[str], str, List[int], int, List[AnsiFormat], AnsiFormat]):
         self._s = s
         # Key is the string index to make a color change at
         # Each value element is a list of 2 lists
@@ -927,7 +939,7 @@ class AnsiString:
         #   index 1: the settings to remove at this string index
         # TODO: it likely makes sense to create a separate class to maintain setting lists. This map of lists gets
         #       really difficult to read!
-        self._color_settings = {}
+        self._color_settings:Dict[int,'AnsiString.SettingPoint'] = {}
 
         # Unpack settings
         settings = []
@@ -940,7 +952,7 @@ class AnsiString:
         if settings:
             self.apply_formatting(settings)
 
-    def assign_str(self, s):
+    def assign_str(self, s:str):
         '''
         Assigns the base string and adjusts the ANSI settings based on the new length.
         '''
@@ -959,21 +971,21 @@ class AnsiString:
         '''
         return self._s
 
-    def copy(self):
+    def copy(self) -> 'AnsiString':
         return self[:]
 
     @staticmethod
-    def _insert_settings_to_dict(settings_dict:dict, idx:int, apply:bool, settings:Settings, topmost:bool=True):
+    def _insert_settings_to_dict(settings_dict:Dict[int,'AnsiString.SettingPoint'], idx:int, apply:bool, settings:Settings, topmost:bool=True):
         if idx not in settings_dict:
-            settings_dict[idx] = [[] for _ in range(__class__.SETTINGS_ITEM_LIST_LEN)]
-        list_idx = __class__.SETTINGS_APPLY_IDX if apply else __class__.SETTINGS_REMOVE_IDX
+            settings_dict[idx] = __class__.SettingPoint()
+        lst = settings_dict[idx].add if apply else settings_dict[idx].rem
         if topmost:
-            settings_dict[idx][list_idx].append(settings)
+            lst.append(settings)
         else:
-            settings_dict[idx][list_idx].insert(0, settings)
+            lst.insert(0, settings)
 
     @staticmethod
-    def _shift_settings_idx(settings_dict:dict, num:int, keep_origin:bool):
+    def _shift_settings_idx(settings_dict:Dict[int,'AnsiString.SettingPoint'], num:int, keep_origin:bool):
         '''
         Not fully supported for when num is negative
         '''
@@ -991,7 +1003,7 @@ class AnsiString:
             setting_or_settings:Union[List[str], str, List[AnsiFormat], AnsiFormat],
             start:int=0,
             end:Union[int,None]=None,
-            topmost=True
+            topmost:bool=True
     ):
         '''
         Sets the formatting for a given range of characters.
@@ -1040,20 +1052,20 @@ class AnsiString:
         self._color_settings = {}
 
     class SettingsIterator:
-        def __init__(self, settings_dict:dict):
-            self.settings_dict = settings_dict
-            self.current_settings = []
+        def __init__(self, settings_dict:Dict[int,'AnsiString.SettingPoint']):
+            self.settings_dict:Dict[int,AnsiString.SettingPoint] = settings_dict
+            self.current_settings:List[AnsiString.Settings] = []
             self.dict_iter = iter(sorted(self.settings_dict))
 
         def __iter__(self):
             return self
 
-        def __next__(self) -> tuple:
+        def __next__(self) -> Tuple[int,'AnsiString.SettingPoint',List['AnsiString.Settings']]:
             # Will raise StopIteration when complete
             idx = next(self.dict_iter)
             settings = self.settings_dict[idx]
             # Remove settings that it is time to remove
-            for setting in settings[AnsiString.SETTINGS_REMOVE_IDX]:
+            for setting in settings.rem:
                 # setting object will only be matched and removed if it is the same reference to one
                 # previously added - will raise exception otherwise which should not happen if the
                 # settings dictionary and this method were setup correctly.
@@ -1067,18 +1079,18 @@ class AnsiString:
                 else:
                     raise ValueError('could not remove setting: not in list')
             # Apply settings that it is time to add
-            self.current_settings += settings[AnsiString.SETTINGS_APPLY_IDX]
+            self.current_settings += settings.add
             return (idx, settings, self.current_settings)
 
     class CharIterator:
-        def __init__(self, s):
-            self.current_idx = -1
-            self.s = s
+        def __init__(self, s:'AnsiString'):
+            self.current_idx:int = -1
+            self.s:AnsiString = s
 
         def __iter__(self):
             return self
 
-        def __next__(self) -> tuple:
+        def __next__(self) -> 'AnsiString':
             self.current_idx += 1
             if self.current_idx >= len(self.s):
                 raise StopIteration
@@ -1095,7 +1107,7 @@ class AnsiString:
         else:
             return val
 
-    def __getitem__(self, val:Union[int, slice]):
+    def __getitem__(self, val:Union[int, slice]) -> 'AnsiString':
         '''
         Returns a new AnsiString object which represents a substring of self.
         Note: the new copy may contain some references to settings in the origin. This is ok since the value of each
@@ -1127,35 +1139,35 @@ class AnsiString:
                 # Complete
                 break
             elif idx == en:
-                if settings[1]:
-                    new_s._color_settings[idx - st] = [[], list(settings[1])]
+                if settings.rem:
+                    new_s._color_settings[idx - st] = __class__.SettingPoint(rem=list(settings.rem))
                 # Complete
                 break
             elif idx == st:
                 if current_settings:
-                    new_s._color_settings[0] = [list(current_settings), []]
+                    new_s._color_settings[0] = __class__.SettingPoint(add=list(current_settings))
                 settings_initialized = True
             elif idx > st:
                 if not settings_initialized and previous_settings is not None:
                     if previous_settings:
-                        new_s._color_settings[0] = [previous_settings, []]
+                        new_s._color_settings[0] = __class__.SettingPoint(add=previous_settings)
                     settings_initialized = True
-                new_s._color_settings[idx - st] = [list(settings[0]), list(settings[1])]
+                new_s._color_settings[idx - st] = __class__.SettingPoint(settings.add, settings.rem)
 
             # It's necessary to copy (i.e. call list()) since current_settings ref will change on next loop
             previous_settings = list(current_settings)
 
         if not settings_initialized and previous_settings:
             # Substring was between settings
-            new_s._color_settings[0] = [previous_settings, []]
+            new_s._color_settings[0] = __class__.SettingPoint(add=previous_settings)
 
         # Because this class supports concatenation, it's necessary to remove all settings before ending
         if previous_settings:
             new_len = len(new_s._s)
             if new_len not in new_s._color_settings:
-                new_s._color_settings[new_len] = [[], []]
-            settings_to_remove = [s for s in previous_settings if s not in new_s._color_settings[new_len][AnsiString.SETTINGS_REMOVE_IDX]]
-            new_s._color_settings[new_len][AnsiString.SETTINGS_REMOVE_IDX].extend(settings_to_remove)
+                new_s._color_settings[new_len] = __class__.SettingPoint()
+            settings_to_remove = [s for s in previous_settings if s not in new_s._color_settings[new_len].rem]
+            new_s._color_settings[new_len].rem.extend(settings_to_remove)
 
         return new_s
 
@@ -1165,7 +1177,7 @@ class AnsiString:
         '''
         return self.__format__(None)
 
-    def _apply_string_format(self, string_format):
+    def _apply_string_format(self, string_format:str):
         match = re.search(r'^(.?)<([0-9]*)$', string_format)
         if match:
             # Left justify
@@ -1242,7 +1254,7 @@ class AnsiString:
             last_idx = idx
 
             settings_to_apply = [str(s) for s in current_settings]
-            if settings[__class__.SETTINGS_REMOVE_IDX] and settings_to_apply:
+            if settings.rem and settings_to_apply:
                 # Settings were removed and there are settings to be applied -
                 # need to reset before applying current settings
                 settings_to_apply = [__class__.RESET] + settings_to_apply
@@ -1262,17 +1274,17 @@ class AnsiString:
     def __iter__(self):
         return iter(__class__.CharIterator(self))
 
-    def capitalize(self):
+    def capitalize(self) -> 'AnsiString':
         cpy = self.copy()
         cpy._s = cpy._s.capitalize()
         return cpy
 
-    def casefold(self):
+    def casefold(self) -> 'AnsiString':
         cpy = self.copy()
         cpy._s = cpy._s.casefold()
         return cpy
 
-    def center(self, width:int, fillchar:str=' ', inplace:bool=False):
+    def center(self, width:int, fillchar:str=' ', inplace:bool=False) -> 'AnsiString':
         '''
         Center justification.
         inplace: True to execute in-place; False to return a copy
@@ -1296,7 +1308,7 @@ class AnsiString:
 
         return obj
 
-    def ljust(self, width:int, fillchar:str=' ', inplace:bool=False):
+    def ljust(self, width:int, fillchar:str=' ', inplace:bool=False) -> 'AnsiString':
         '''
         Left justification.
         inplace: True to execute in-place; False to return a copy
@@ -1316,7 +1328,7 @@ class AnsiString:
 
         return obj
 
-    def rjust(self, width:int, fillchar:str=' ', inplace:bool=False):
+    def rjust(self, width:int, fillchar:str=' ', inplace:bool=False) -> 'AnsiString':
         '''
         Right justification.
         inplace: True to execute in-place; False to return a copy
@@ -1344,8 +1356,9 @@ class AnsiString:
     def endswith(self, suffix:str, start:int=None, end:int=None) -> bool:
         return self._s.endswith(suffix, start, end)
 
-    def expandtabs(self, tabsize:int=8):
+    def expandtabs(self, tabsize:int=8) -> 'AnsiString':
         cpy = self.copy()
+        # FIXME: this will mess with formatting
         cpy._s = cpy._s.expandtabs(tabsize)
         return cpy
 
@@ -1398,20 +1411,20 @@ class AnsiString:
         '''
         previous_settings = [[],[]]
         for idx, settings, current_settings in __class__.SettingsIterator(self._color_settings):
-            apply_list_original = list(settings[AnsiString.SETTINGS_APPLY_IDX])
+            apply_list_original = list(settings.add)
 
             # Remove settings that are redundantly reapplied
-            self._color_settings[idx][AnsiString.SETTINGS_APPLY_IDX] = [
-                s for s in settings[AnsiString.SETTINGS_APPLY_IDX] if s not in previous_settings
+            self._color_settings[idx].add = [
+                s for s in settings.add if s not in previous_settings
             ]
 
             # Remove settings that are being applied and removed within the same index
-            remove_list = settings[AnsiString.SETTINGS_REMOVE_IDX]
-            self._color_settings[idx][AnsiString.SETTINGS_APPLY_IDX] = [
-                v for v in settings[AnsiString.SETTINGS_APPLY_IDX] if v not in remove_list
+            remove_list = settings.rem
+            self._color_settings[idx].add = [
+                v for v in settings.add if v not in remove_list
             ]
-            self._color_settings[idx][AnsiString.SETTINGS_REMOVE_IDX] = [
-                v for v in settings[AnsiString.SETTINGS_REMOVE_IDX] if v not in apply_list_original
+            self._color_settings[idx].rem = [
+                v for v in settings.rem if v not in apply_list_original
             ]
 
             # Save for next loop
@@ -1420,17 +1433,17 @@ class AnsiString:
         # Remove now empty indices
         for idx in list(self._color_settings.keys()):
             if (
-                not self._color_settings[idx][AnsiString.SETTINGS_APPLY_IDX]
-                and not self._color_settings[idx][AnsiString.SETTINGS_REMOVE_IDX]
+                not self._color_settings[idx].add
+                and not self._color_settings[idx].rem
             ):
                 del self._color_settings[idx]
 
-    def __add__(self, value):
+    def __add__(self, value:Union[str,'AnsiString']) -> 'AnsiString':
         cpy = self.copy()
         cpy += value
         return cpy
 
-    def __iadd__(self, value):
+    def __iadd__(self, value:Union[str,'AnsiString']) -> 'AnsiString':
         if isinstance(value, str):
             self._s += value
         elif isinstance(value, AnsiString):
@@ -1439,8 +1452,8 @@ class AnsiString:
             for key, value in value._color_settings.items():
                 key += shift
                 if key in self._color_settings:
-                    self._color_settings[key][AnsiString.SETTINGS_APPLY_IDX].extend(value[AnsiString.SETTINGS_APPLY_IDX])
-                    self._color_settings[key][AnsiString.SETTINGS_REMOVE_IDX].extend(value[AnsiString.SETTINGS_REMOVE_IDX])
+                    self._color_settings[key].add.extend(value.add)
+                    self._color_settings[key].rem.extend(value.rem)
                 else:
                     self._color_settings[key] = value
             self.simplify_settings()
@@ -1448,12 +1461,12 @@ class AnsiString:
             raise ValueError(f'value is invalid type: {type(value)}')
         return self
 
-    def __eq__(self, value) -> bool:
+    def __eq__(self, value:'AnsiString') -> bool:
         if not isinstance(value, AnsiString):
             return False
         return self._s == value._s and self._color_settings == value._color_settings
 
-    def __contains__(self, value) -> bool:
+    def __contains__(self, value:Union[str,'AnsiString',Any]) -> bool:
         if isinstance(value, str):
             return value in self._s
         elif isinstance(value, AnsiString):
@@ -1464,7 +1477,7 @@ class AnsiString:
         return len(self._s)
 
     @staticmethod
-    def join(*args):
+    def join(*args:Union[str,'AnsiString']) -> 'AnsiString':
         if not args:
             return AnsiString()
         args = list(args)
@@ -1479,7 +1492,7 @@ class AnsiString:
             joint += arg
         return joint
 
-    def lower(self, inplace:bool=False):
+    def lower(self, inplace:bool=False) -> 'AnsiString':
         '''
         Convert to lowercase.
         inplace: True to execute in-place; False to return a copy
@@ -1491,7 +1504,7 @@ class AnsiString:
         obj._s = obj._s.lower()
         return obj
 
-    def upper(self, inplace:bool=False):
+    def upper(self, inplace:bool=False) -> 'AnsiString':
         '''
         Convert to uppercase.
         inplace: True to execute in-place; False to return a copy
@@ -1503,7 +1516,7 @@ class AnsiString:
         obj._s = obj._s.lower()
         return obj
 
-    def lstrip(self, chars:str=None, inplace:bool=False):
+    def lstrip(self, chars:str=None, inplace:bool=False) -> 'AnsiString':
         '''
         Remove leading whitespace
         chars: If not None, remove characters in chars instead
@@ -1511,7 +1524,7 @@ class AnsiString:
         '''
         return self._strip(chars=chars, inplace=inplace, do_lstrip=True, do_rstrip=False)
 
-    def clip(self, start:int=None, end:int=None, inplace:bool=False):
+    def clip(self, start:int=None, end:int=None, inplace:bool=False) -> 'AnsiString':
         '''
         Calls [] operator and optionally assigns in-place
         '''
@@ -1524,7 +1537,7 @@ class AnsiString:
         else:
             return obj
 
-    def rstrip(self, chars:str=None, inplace:bool=False):
+    def rstrip(self, chars:str=None, inplace:bool=False) -> 'AnsiString':
         '''
         Remove trailing whitespace
         chars: If not None, remove characters in chars instead
@@ -1532,7 +1545,7 @@ class AnsiString:
         '''
         return self._strip(chars=chars, inplace=inplace, do_lstrip=False, do_rstrip=True)
 
-    def strip(self, chars:str=None, inplace:bool=False):
+    def strip(self, chars:str=None, inplace:bool=False) -> 'AnsiString':
         '''
         Remove leading and trailing whitespace
         chars: If not None, remove characters in chars instead
@@ -1540,7 +1553,7 @@ class AnsiString:
         '''
         return self._strip(chars=chars, inplace=inplace, do_lstrip=True, do_rstrip=True)
 
-    def _strip(self, chars:str=None, inplace:bool=False, do_lstrip:bool=True, do_rstrip:bool=True):
+    def _strip(self, chars:str=None, inplace:bool=False, do_lstrip:bool=True, do_rstrip:bool=True) -> 'AnsiString':
         '''
         Remove leading and trailing whitespace
         chars: If not None, remove characters in chars instead
@@ -1574,7 +1587,7 @@ class AnsiString:
         # This is always going to create a copy - no good way to modify settings while iterating over it
         return self.clip(lcount, rcount, inplace)
 
-    def partition(self, sep:str):
+    def partition(self, sep:str) -> Tuple['AnsiString','AnsiString','AnsiString']:
         '''
         Partition the string into three parts using the given separator.
 
@@ -1591,13 +1604,13 @@ class AnsiString:
         else:
             return (self.copy(), AnsiString(), AnsiString())
 
-    def settings_at(self, idx:int):
+    def settings_at(self, idx:int) -> str:
         '''
         Returns a string which represents the settings being used at the given index
         '''
         if idx == 0:
             if 0 in self._color_settings:
-                return ';'.join(str(s) for s in self._color_settings[0][self.SETTINGS_APPLY_IDX])
+                return ';'.join(str(s) for s in self._color_settings[0].add)
             else:
                 return ''
         elif idx > 0 and idx < len(self._s):
@@ -1607,7 +1620,7 @@ class AnsiString:
         else:
             return ''
 
-    def removeprefix(self, prefix:str, inplace:bool=False):
+    def removeprefix(self, prefix:str, inplace:bool=False) -> 'AnsiString':
         if not self._s.startswith(prefix):
             if inplace:
                 return self
@@ -1616,7 +1629,7 @@ class AnsiString:
         else:
             return self.clip(start=len(prefix), inplace=inplace)
 
-    def removesuffix(self, suffix:str, inplace:bool=False):
+    def removesuffix(self, suffix:str, inplace:bool=False) -> 'AnsiString':
         if not self._s.endswith(suffix):
             if inplace:
                 return self
