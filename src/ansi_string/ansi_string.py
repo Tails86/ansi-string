@@ -1184,10 +1184,9 @@ class AnsiString:
                     new_s._fmts[0] = __class__.SettingPoint(add=list(current_settings))
                 settings_initialized = True
             elif idx > st:
-                if not settings_initialized and previous_settings is not None:
-                    if previous_settings:
-                        new_s._fmts[0] = __class__.SettingPoint(add=previous_settings)
-                    settings_initialized = True
+                if not settings_initialized and previous_settings:
+                    new_s._fmts[0] = __class__.SettingPoint(add=previous_settings)
+                settings_initialized = True
                 new_s._fmts[idx - st] = __class__.SettingPoint(settings.add, settings.rem)
 
             # It's necessary to copy (i.e. call list()) since current_settings ref will change on next loop

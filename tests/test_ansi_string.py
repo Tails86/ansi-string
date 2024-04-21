@@ -435,6 +435,12 @@ class CliTests(unittest.TestCase):
         self.assertEqual(str(s2), '\x1b[31;1mMake This String A Title For Some Book\x1b[m')
         self.assertEqual(str(s), '\x1b[31;1mmake this String a title for some book\x1b[m')
 
+    def test_cat_edge_case3(self):
+        # There was a bug when copy() was used and the string didn't start with any formatting
+        s = AnsiString.join('This ', AnsiString('string', AnsiFormat.ORANGE), ' contains ')
+        s = s + AnsiString('multiple', AnsiFormat.BG_BLUE)
+        self.assertEqual(str(s), 'This \x1b[38;5;214mstring\x1b[m contains \x1b[44mmultiple\x1b[m')
+
 
 if __name__ == '__main__':
     unittest.main()
