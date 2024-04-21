@@ -1355,11 +1355,8 @@ class AnsiString:
     def endswith(self, suffix:str, start:int=None, end:int=None) -> bool:
         return self._s.endswith(suffix, start, end)
 
-    def expandtabs(self, tabsize:int=8) -> 'AnsiString':
-        cpy = self.copy()
-        # FIXME: this will mess with formatting
-        cpy._s = cpy._s.expandtabs(tabsize)
-        return cpy
+    def expandtabs(self, tabsize:int=8, inplace:bool=False) -> 'AnsiString':
+        return self.replace('\t', ' ' * tabsize, inplace=inplace)
 
     def find(self, sub:str, start:int=None, end:int=None) -> int:
         return self._s.find(sub, start, end)
@@ -1601,3 +1598,19 @@ class AnsiString:
                 return self.copy()
         else:
             return self.clip(end=-len(suffix), inplace=inplace)
+
+    def replace(self, old:str, new:Union[str,'AnsiString'], count:int=-1, inplace:bool=False) -> 'AnsiString':
+        obj = self
+        idx = self._s.find(old)
+        while (count < 0 or count > 0) and idx >= 0:
+            obj = self[:idx] + new + self[idx+len(new):]
+            if count > 0:
+                count -= 1
+            idx = self._s.find(old, idx + len(old))
+
+        if inplace:
+            self._s = obj._s
+            self._color_settings = obj._color_settings
+            return self
+        else:
+            return obj

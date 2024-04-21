@@ -371,6 +371,10 @@ class CliTests(unittest.TestCase):
         c = a + b
         self.assertEqual(str(c), '\x1b[31ma\x1b[0;31mb\x1b[m')
 
+    def test_replace(self):
+        s=AnsiString('This string will be formatted italic and purple', ['purple', 'italic'])
+        s.replace('formatted', AnsiString('formatted', 'bg_red'), inplace=True)
+        self.assertEqual(str(s), '\x1b[38;5;90;3mThis string will be \x1b[0;41mformatted\x1b[0;38;5;90;3m italic and purple\x1b[m')
 
 if __name__ == '__main__':
     unittest.main()
