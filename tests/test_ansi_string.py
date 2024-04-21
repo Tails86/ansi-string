@@ -371,8 +371,7 @@ class CliTests(unittest.TestCase):
 
     def test_cat_edge_case2(self):
         # The beginning of the RHS string contains the same formatting of the LHS string, but ends before last char
-        a = AnsiString('abc', 'red')
-        a.apply_formatting('bold')
+        a = AnsiString('abc', 'red', 'bold')
         b = AnsiString('xyz')
         b.apply_formatting('red', end=-2)
         b.apply_formatting('bold', end=-1)

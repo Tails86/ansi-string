@@ -816,35 +816,47 @@ class AnsiString:
     # This isn't in AnsiFormat because it shouldn't be used externally
     RESET = '0'
 
-    class Settings:
+    class Setting:
         '''
         Internal use only - mainly used to create a unique objects which may contain same strings
         '''
-        def __init__(self, *setting_or_settings:Union[List[str], str, List[int], int, List[AnsiFormat], AnsiFormat]):
-            settings = []
-            for sos in setting_or_settings:
-                if not isinstance(sos, list):
-                    settings.append(sos)
-                else:
-                    settings += sos
+        def __init__(self, setting:Union[str, int, AnsiFormat]):
+            if isinstance(setting, int):
+                setting = str(setting)
+            elif hasattr(setting, 'value') and isinstance(setting.value, str):
+                # Likely an enumeration - use the value
+                setting = setting.value
+            elif not isinstance(setting, str):
+                raise TypeError('Unsupported type for setting_or_settings: {}'.format(type(setting)))
 
-            for i, item in enumerate(settings):
-                if isinstance(item, str) or isinstance(item, int):
-                    settings[i] = __class__._scrub_ansi_format_string(str(item))
-                elif hasattr(item, 'value') and isinstance(item.value, str):
-                    # Likely an enumeration - use the value
-                    settings[i] = item.value
-                else:
-                    raise TypeError('Unsupported type for setting_or_settings: {}'.format(type(setting_or_settings)))
-
-            self._str = ';'.join(settings)
+            self._str = setting
 
         def __eq__(self, value) -> bool:
             if isinstance(value, str):
                 return self._str == value
-            elif isinstance(value, AnsiString.Settings):
+            elif isinstance(value, AnsiString.Setting):
                 return self._str == value._str
             return False
+
+        def __str__(self) -> str:
+            return self._str
+
+    class SettingPoint:
+        def __init__(
+            self,
+            add:Union[List['AnsiString.Setting'],None]=None,
+            rem:Union[List['AnsiString.Setting'],None]=None
+        ):
+            self.add:List[AnsiString.Setting] = add or []
+            self.rem:List[AnsiString.Setting] = rem or []
+
+        def __eq__(self, value) -> bool:
+            if isinstance(value, AnsiString.SettingPoint):
+                return value.add == self.add and value.rem == self.rem
+            return False
+
+        def __bool__(self) -> bool:
+            return bool(self.add) or bool(self.rem)
 
         @staticmethod
         def _parse_rgb_string(s:str) -> str:
@@ -876,10 +888,10 @@ class AnsiString:
             return None
 
         @staticmethod
-        def _scrub_ansi_format_string(ansi_format:str) -> str:
+        def _scrub_ansi_format_string(ansi_format:str) -> List[str]:
             if ansi_format.startswith("["):
                 # Use the rest of the string as-is for settings
-                return ansi_format[1:]
+                return [ansi_format[1:]]
             else:
                 # The format string contains names within AnsiFormat or integers, separated by semicolon
                 formats = ansi_format.split(';')
@@ -912,34 +924,40 @@ class AnsiString:
                                 format_settings_strs.append(format)
                         else:
                             format_settings_strs.append(rgb_format)
-                return ';'.join(format_settings_strs)
+                return format_settings_strs
 
-        def __str__(self) -> str:
-            return self._str
-
-    class SettingPoint:
-        def __init__(
-            self,
-            add:Union[List['AnsiString.Settings'],None]=None,
-            rem:Union[List['AnsiString.Settings'],None]=None
-        ):
-            self.add:List[AnsiString.Settings] = add or []
-            self.rem:List[AnsiString.Settings] = rem or []
-
-        def __eq__(self, value) -> bool:
-            if isinstance(value, AnsiString.SettingPoint):
-                return value.add == self.add and value.rem == self.rem
-            return False
-
-        def __bool__(self) -> bool:
-            return bool(self.add) or bool(self.rem)
-
-        def insert_settings(self, apply:bool, settings:'AnsiString.Settings', topmost:bool=True):
+        def insert_setting(self, apply:bool, setting:'AnsiString.Setting', topmost:bool=True):
             lst = self.add if apply else self.rem
             if topmost:
-                lst.append(settings)
+                lst.append(setting)
             else:
-                lst.insert(0, settings)
+                lst.insert(0, setting)
+
+        def insert_settings(
+            self,
+            apply:bool,
+            settings:Union[List[str], str, List[int], int, List[AnsiFormat], AnsiFormat, List['AnsiString.Setting'], 'AnsiString.Setting'],
+            topmost:bool=True
+        ) -> List['AnsiString.Setting']:
+            if not isinstance(settings, list) and not isinstance(settings, tuple):
+                settings = [settings]
+
+            settings_to_insert = []
+            for setting in settings:
+                if isinstance(setting, AnsiString.Setting):
+                    settings_to_insert.append(setting)
+                elif isinstance(setting, str) or isinstance(setting, int):
+                    settings_to_insert.extend([AnsiString.Setting(s) for s in __class__._scrub_ansi_format_string(str(setting))])
+                elif hasattr(setting, "value") and isinstance(setting.value, str):
+                    settings_to_insert.append(AnsiString.Setting(setting.value))
+
+            lst = self.add if apply else self.rem
+            if topmost:
+                lst.extend(settings_to_insert)
+            else:
+                lst[:0] = settings_to_insert
+
+            return settings_to_insert
 
     def __init__(self, s:str='', *setting_or_settings:Union[List[str], str, List[int], int, List[AnsiFormat], AnsiFormat]):
         self._s = s
@@ -995,14 +1013,20 @@ class AnsiString:
                 # new_key could be negative when num is negative - TODO: either handle or raise exception
                 settings_dict[new_key] = settings_dict.pop(key)
 
-    def _insert_settings(self, idx:int, apply:bool, settings:Settings, topmost:bool=True):
+    def _insert_settings(
+        self,
+        idx:int,
+        apply:bool,
+        settings:Union[List[str], str, List[int], int, List[AnsiFormat], AnsiFormat, List['AnsiString.Setting'], 'AnsiString.Setting'],
+        topmost:bool=True
+    ) -> List['AnsiString.Setting']:
         if idx not in self._fmts:
             self._fmts[idx] = __class__.SettingPoint()
-        self._fmts[idx].insert_settings(apply, settings, topmost)
+        return self._fmts[idx].insert_settings(apply, settings, topmost)
 
     def apply_formatting(
             self,
-            setting_or_settings:Union[List[str], str, List[AnsiFormat], AnsiFormat],
+            setting_or_settings:Union[List[str], str, List[int], int, List[AnsiFormat], AnsiFormat, List['AnsiString.Setting'], 'AnsiString.Setting'],
             start:int=0,
             end:Union[int,None]=None,
             topmost:bool=True
@@ -1026,13 +1050,11 @@ class AnsiString:
             # Ignore - nothing to apply
             return
 
-        settings = __class__.Settings(setting_or_settings)
-
         # Apply settings
-        self._insert_settings(start, True, settings, topmost)
+        inserted_settings = self._insert_settings(start, True, setting_or_settings, topmost)
 
         # Remove settings
-        self._insert_settings(end, False, settings, topmost)
+        self._insert_settings(end, False, inserted_settings, topmost)
 
     def apply_formatting_for_match(
             self,
@@ -1054,14 +1076,14 @@ class AnsiString:
         self._fmts = {}
 
     @staticmethod
-    def _find_setting_reference(find:Settings, in_list:List[Settings]) -> int:
+    def _find_setting_reference(find:Setting, in_list:List[Setting]) -> int:
         for i, s in enumerate(in_list):
             if s is find:
                 return i
         return -1
 
     @staticmethod
-    def _find_settings_references(find_list:List[Settings], in_list:List[Settings]) -> List[Tuple]:
+    def _find_settings_references(find_list:List[Setting], in_list:List[Setting]) -> List[Tuple]:
         matches = []
         for i, s in enumerate(find_list):
             for i2, s2 in enumerate(in_list):
@@ -1072,13 +1094,13 @@ class AnsiString:
     class SettingsIterator:
         def __init__(self, settings_dict:Dict[int,'AnsiString.SettingPoint']):
             self.settings_dict:Dict[int,AnsiString.SettingPoint] = settings_dict
-            self.current_settings:List[AnsiString.Settings] = []
+            self.current_settings:List[AnsiString.Setting] = []
             self.dict_iter = iter(sorted(self.settings_dict))
 
         def __iter__(self):
             return self
 
-        def __next__(self) -> Tuple[int,'AnsiString.SettingPoint',List['AnsiString.Settings']]:
+        def __next__(self) -> Tuple[int,'AnsiString.SettingPoint',List['AnsiString.Setting']]:
             # Will raise StopIteration when complete
             idx = next(self.dict_iter)
             settings = self.settings_dict[idx]
