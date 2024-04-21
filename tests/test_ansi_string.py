@@ -318,5 +318,50 @@ class CliTests(unittest.TestCase):
         self.assertEqual(str(s), str(s2))
         self.assertIsNot(s, s2)
 
+    def test_apply_string_equal_length(self):
+        s = AnsiString('a', 'red') + AnsiString('b', 'green') + AnsiString('c', 'blue')
+        s.assign_str('xyz')
+        self.assertEqual(str(s), '\x1b[31mx\x1b[0;32my\x1b[0;34mz\x1b[m')
+
+    def test_apply_larger_string(self):
+        s = AnsiString('a', 'red') + AnsiString('b', 'green') + AnsiString('c', 'blue')
+        s.assign_str('xxxxxx')
+        self.assertEqual(str(s), '\x1b[31mx\x1b[0;32mx\x1b[0;34mxxxx\x1b[m')
+
+    def test_apply_shorter_string(self):
+        s = AnsiString('a', 'red') + AnsiString('b', 'green') + AnsiString('c', 'blue')
+        s.assign_str('x')
+        self.assertEqual(str(s), '\x1b[31mx\x1b[m')
+
+    def test_remove_prefix_inplace(self):
+        s = AnsiString('blah blah', AnsiFormat.ALT_FONT_4)
+        s.apply_formatting(AnsiFormat.ANTIQUE_WHITE, 1, 2)
+        s.apply_formatting(AnsiFormat.AQUA, 2, 3)
+        s.apply_formatting(AnsiFormat.BEIGE, 3, 4)
+        s.apply_formatting(AnsiFormat.BG_DARK_GRAY, 4, 5)
+        s2 = s.removeprefix('blah', inplace=True)
+        self.assertEqual(str(s), '\x1b[14;48;2;169;169;169m \x1b[0;14mblah\x1b[m')
+        self.assertIs(s, s2)
+
+    def test_remove_prefix_not_found(self):
+        s = AnsiString('blah blah', AnsiFormat.ALT_FONT_4)
+        s2 = s.removeprefix('nah')
+        self.assertEqual(str(s), '\x1b[14mblah blah\x1b[m')
+        self.assertIsNot(s, s2)
+
+    def test_remove_suffix_inplace(self):
+        s = AnsiString('blah blah', AnsiFormat.ALT_FONT_4, 'blue')
+        s2 = s.removesuffix('blah', inplace=True)
+        self.assertEqual(str(s), '\x1b[14;34mblah \x1b[m')
+        self.assertIs(s, s2)
+
+    def test_remove_suffix_not_found(self):
+        s = AnsiString('blah blah', AnsiFormat.ALT_FONT_4)
+        s2 = s.removesuffix('nah')
+        self.assertEqual(str(s), '\x1b[14mblah blah\x1b[m')
+        self.assertIsNot(s, s2)
+
+
+
 if __name__ == '__main__':
     unittest.main()

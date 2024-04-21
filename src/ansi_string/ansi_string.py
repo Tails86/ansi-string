@@ -93,7 +93,7 @@ class AnsiFormat(Enum):
     '''
     Formatting which may be supplied to AnsiString.
     '''
-    RESET='0'
+    # Never use RESET
     BOLD='1'
     FAINT='2'
     ITALIC='3'
@@ -815,19 +815,24 @@ class AnsiString:
     # Index of _color_settings value list which contains settings to remove
     SETTINGS_REMOVE_IDX = 1
 
+    # This isn't in AnsiFormat because it shouldn't be used externally
+    RESET = '0'
+
     class Settings:
         '''
         Internal use only - mainly used to create a unique objects which may contain same strings
         '''
-        def __init__(self, setting_or_settings:Union[List[str], str, List[AnsiFormat], AnsiFormat]):
-            if not isinstance(setting_or_settings, list):
-                settings = [setting_or_settings]
-            else:
-                settings = setting_or_settings
+        def __init__(self, *setting_or_settings:Union[List[str], str, List[AnsiFormat], AnsiFormat]):
+            settings = []
+            for sos in setting_or_settings:
+                if not isinstance(sos, list):
+                    settings.append(sos)
+                else:
+                    settings += sos
 
             for i, item in enumerate(settings):
-                if isinstance(item, str):
-                    settings[i] = __class__._scrub_ansi_format_string(item)
+                if isinstance(item, str) or isinstance(item, int):
+                    settings[i] = __class__._scrub_ansi_format_string(str(item))
                 elif hasattr(item, 'value') and isinstance(item.value, str):
                     # Likely an enumeration - use the value
                     settings[i] = item.value
@@ -894,7 +899,11 @@ class AnsiString:
                         rgb_format = __class__._parse_rgb_string(format)
                         if not rgb_format:
                             try:
-                                _ = int(format)
+                                int_value = int(format)
+                                # 0 should never be used because it will mess with internal assumptions
+                                # Negative values are invalid
+                                if int_value <= 0:
+                                    raise ValueError(f'Invalid value [{int_value}]; must be greater than 0')
                             except ValueError:
                                 raise ValueError(
                                     'AnsiString.__format__ failed to parse format ({}); invalid name: {}'
@@ -910,7 +919,7 @@ class AnsiString:
         def __str__(self):
             return self._str
 
-    def __init__(self, s:str='', setting_or_settings:Union[List[str], str, List[AnsiFormat], AnsiFormat]=None):
+    def __init__(self, s:str='', *setting_or_settings:Union[List[str], str, List[AnsiFormat], AnsiFormat]):
         self._s = s
         # Key is the string index to make a color change at
         # Each value element is a list of 2 lists
@@ -919,13 +928,28 @@ class AnsiString:
         # TODO: it likely makes sense to create a separate class to maintain setting lists. This map of lists gets
         #       really difficult to read!
         self._color_settings = {}
-        if setting_or_settings:
-            self.apply_formatting(setting_or_settings)
+
+        # Unpack settings
+        settings = []
+        for sos in setting_or_settings:
+            if not isinstance(sos, list):
+                settings.append(sos)
+            else:
+                settings += sos
+
+        if settings:
+            self.apply_formatting(settings)
 
     def assign_str(self, s):
         '''
-        Assigns the base string.
+        Assigns the base string and adjusts the ANSI settings based on the new length.
         '''
+        if len(s) > len(self._s):
+            if len(self._s) in self._color_settings:
+                self._color_settings[len(s)] = self._color_settings.pop(len(self._s))
+        elif len(s) < len(self._s):
+            # This may erase some settings that will no longer apply
+            self.clip(end=len(s), inplace=True)
         self._s = s
 
     @property
@@ -1221,7 +1245,7 @@ class AnsiString:
             if settings[__class__.SETTINGS_REMOVE_IDX] and settings_to_apply:
                 # Settings were removed and there are settings to be applied -
                 # need to reset before applying current settings
-                settings_to_apply = [AnsiFormat.RESET.value] + settings_to_apply
+                settings_to_apply = [__class__.RESET] + settings_to_apply
             # Apply these settings
             out_str += __class__.ANSI_ESCAPE_FORMAT.format(';'.join(settings_to_apply))
             # Save this flag in case this is the last loop
@@ -1487,6 +1511,19 @@ class AnsiString:
         '''
         return self._strip(chars=chars, inplace=inplace, do_lstrip=True, do_rstrip=False)
 
+    def clip(self, start:int=None, end:int=None, inplace:bool=False):
+        '''
+        Calls [] operator and optionally assigns in-place
+        '''
+        obj = self[start:end]
+        if inplace:
+            self._s = obj._s
+            self._color_settings = obj._color_settings
+            del obj
+            return self
+        else:
+            return obj
+
     def rstrip(self, chars:str=None, inplace:bool=False):
         '''
         Remove trailing whitespace
@@ -1535,14 +1572,7 @@ class AnsiString:
             return self
 
         # This is always going to create a copy - no good way to modify settings while iterating over it
-        obj = self[lcount:rcount]
-
-        if inplace:
-            self._s = obj._s
-            self._color_settings = obj._color_settings
-            return self
-        else:
-            return obj
+        return self.clip(lcount, rcount, inplace)
 
     def partition(self, sep:str):
         '''
@@ -1576,3 +1606,21 @@ class AnsiString:
             return c.settings_at(0)
         else:
             return ''
+
+    def removeprefix(self, prefix:str, inplace:bool=False):
+        if not self._s.startswith(prefix):
+            if inplace:
+                return self
+            else:
+                return self.copy()
+        else:
+            return self.clip(start=len(prefix), inplace=inplace)
+
+    def removesuffix(self, suffix:str, inplace:bool=False):
+        if not self._s.endswith(suffix):
+            if inplace:
+                return self
+            else:
+                return self.copy()
+        else:
+            return self.clip(end=-len(suffix), inplace=inplace)
