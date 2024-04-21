@@ -297,15 +297,16 @@ class CliTests(unittest.TestCase):
         self.assertEqual(s.settings_at(5), '38;5;90;3;1')
 
     def test_settings_at_no_format(self):
-        s=AnsiString('String without format')
+        s=AnsiString('dsfoi sdfsdfksjdbf')
+        s.apply_formatting('red', 4)
         self.assertEqual(s.settings_at(3), '')
 
     def test_settings_at_out_of_range_high(self):
-        s=AnsiString('String without format', 'red')
+        s=AnsiString('aradfghsdfgsdfgdsfgdf', 'red')
         self.assertEqual(s.settings_at(21), '')
 
     def test_settings_at_out_of_range_low(self):
-        s=AnsiString('String without format', 'orange')
+        s=AnsiString('gvcsxghfwraedtygxc', 'orange')
         self.assertEqual(s.settings_at(-1), '')
 
     def test_iterate(self):
@@ -315,11 +316,7 @@ class CliTests(unittest.TestCase):
         for c in s:
             s2 += c
         # This will look the same, even though each character now has formatting
-        self.assertEqual(
-            str(s2),
-            '\x1b[43mo\x1b[0;43mn\x1b[0;43me\x1b[0;43m \x1b[0;4mt\x1b[0;4mw\x1b[0;4mo\x1b[0;4m \x1b[0;1mt\x1b[0;1mh'
-            '\x1b[0;1mr\x1b[0;1me\x1b[0;1me\x1b[m'
-        )
+        self.assertEqual(str(s2), str(s))
         self.assertIsNot(s, s2)
 
     def test_apply_string_equal_length(self):
@@ -368,8 +365,9 @@ class CliTests(unittest.TestCase):
     def test_cat_edge_case(self):
         a = AnsiString('a', 'red')
         b = AnsiString('b', 'red')
+        # Two string with same formatting should merge formatting properly
         c = a + b
-        self.assertEqual(str(c), '\x1b[31ma\x1b[0;31mb\x1b[m')
+        self.assertEqual(str(c), '\x1b[31mab\x1b[m')
 
     def test_replace(self):
         s=AnsiString('This string will be formatted italic and purple', ['purple', 'italic'])

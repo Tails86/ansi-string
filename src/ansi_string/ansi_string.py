@@ -931,6 +931,9 @@ class AnsiString:
                 return value.add == self.add and value.rem == self.rem
             return False
 
+        def __bool__(self) -> bool:
+            return bool(self.add) or bool(self.rem)
+
         def insert_settings(self, apply:bool, settings:'AnsiString.Settings', topmost:bool=True):
             lst = self.add if apply else self.rem
             if topmost:
@@ -946,7 +949,7 @@ class AnsiString:
         #   index 1: the settings to remove at this string index
         # TODO: it likely makes sense to create a separate class to maintain setting lists. This map of lists gets
         #       really difficult to read!
-        self._color_settings:Dict[int,'AnsiString.SettingPoint'] = {}
+        self._fmts:Dict[int,'AnsiString.SettingPoint'] = {}
 
         # Unpack settings
         settings = []
@@ -964,8 +967,8 @@ class AnsiString:
         Assigns the base string and adjusts the ANSI settings based on the new length.
         '''
         if len(s) > len(self._s):
-            if len(self._s) in self._color_settings:
-                self._color_settings[len(s)] = self._color_settings.pop(len(self._s))
+            if len(self._s) in self._fmts:
+                self._fmts[len(s)] = self._fmts.pop(len(self._s))
         elif len(s) < len(self._s):
             # This may erase some settings that will no longer apply
             self.clip(end=len(s), inplace=True)
@@ -993,9 +996,9 @@ class AnsiString:
                 settings_dict[new_key] = settings_dict.pop(key)
 
     def _insert_settings(self, idx:int, apply:bool, settings:Settings, topmost:bool=True):
-        if idx not in self._color_settings:
-            self._color_settings[idx] = __class__.SettingPoint()
-        self._color_settings[idx].insert_settings(apply, settings, topmost)
+        if idx not in self._fmts:
+            self._fmts[idx] = __class__.SettingPoint()
+        self._fmts[idx].insert_settings(apply, settings, topmost)
 
     def apply_formatting(
             self,
@@ -1048,7 +1051,23 @@ class AnsiString:
         '''
         Clears all internal formatting.
         '''
-        self._color_settings = {}
+        self._fmts = {}
+
+    @staticmethod
+    def _find_setting_reference(find:Settings, in_list:List[Settings]) -> int:
+        for i, s in enumerate(in_list):
+            if s is find:
+                return i
+        return -1
+
+    @staticmethod
+    def _find_settings_references(find_list:List[Settings], in_list:List[Settings]) -> List[Tuple]:
+        matches = []
+        for i, s in enumerate(find_list):
+            for i2, s2 in enumerate(in_list):
+                if s is s2:
+                    matches.append((i, i2))
+        return matches
 
     class SettingsIterator:
         def __init__(self, settings_dict:Dict[int,'AnsiString.SettingPoint']):
@@ -1068,12 +1087,8 @@ class AnsiString:
                 # setting object will only be matched and removed if it is the same reference to one
                 # previously added - will raise exception otherwise which should not happen if the
                 # settings dictionary and this method were setup correctly.
-                remove_idx = None
-                for i, s in enumerate(self.current_settings):
-                    if s is setting:
-                        remove_idx = i
-                        break
-                if remove_idx is not None:
+                remove_idx = AnsiString._find_setting_reference(setting, self.current_settings)
+                if remove_idx >= 0:
                     del self.current_settings[remove_idx]
                 else:
                     raise ValueError('could not remove setting: not in list')
@@ -1133,40 +1148,40 @@ class AnsiString:
 
         previous_settings = None
         settings_initialized = False
-        for idx, settings, current_settings in __class__.SettingsIterator(self._color_settings):
+        for idx, settings, current_settings in __class__.SettingsIterator(self._fmts):
             if idx > len(self._s) or idx > en:
                 # Complete
                 break
             elif idx == en:
                 if settings.rem:
-                    new_s._color_settings[idx - st] = __class__.SettingPoint(rem=list(settings.rem))
+                    new_s._fmts[idx - st] = __class__.SettingPoint(rem=list(settings.rem))
                 # Complete
                 break
             elif idx == st:
                 if current_settings:
-                    new_s._color_settings[0] = __class__.SettingPoint(add=list(current_settings))
+                    new_s._fmts[0] = __class__.SettingPoint(add=list(current_settings))
                 settings_initialized = True
             elif idx > st:
                 if not settings_initialized and previous_settings is not None:
                     if previous_settings:
-                        new_s._color_settings[0] = __class__.SettingPoint(add=previous_settings)
+                        new_s._fmts[0] = __class__.SettingPoint(add=previous_settings)
                     settings_initialized = True
-                new_s._color_settings[idx - st] = __class__.SettingPoint(settings.add, settings.rem)
+                new_s._fmts[idx - st] = __class__.SettingPoint(settings.add, settings.rem)
 
             # It's necessary to copy (i.e. call list()) since current_settings ref will change on next loop
             previous_settings = list(current_settings)
 
         if not settings_initialized and previous_settings:
             # Substring was between settings
-            new_s._color_settings[0] = __class__.SettingPoint(add=previous_settings)
+            new_s._fmts[0] = __class__.SettingPoint(add=previous_settings)
 
         # Because this class supports concatenation, it's necessary to remove all settings before ending
         if previous_settings:
             new_len = len(new_s._s)
-            if new_len not in new_s._color_settings:
-                new_s._color_settings[new_len] = __class__.SettingPoint()
-            settings_to_remove = [s for s in previous_settings if s not in new_s._color_settings[new_len].rem]
-            new_s._color_settings[new_len].rem.extend(settings_to_remove)
+            if new_len not in new_s._fmts:
+                new_s._fmts[new_len] = __class__.SettingPoint()
+            settings_to_remove = [s for s in previous_settings if s not in new_s._fmts[new_len].rem]
+            new_s._fmts[new_len].rem.extend(settings_to_remove)
 
         return new_s
 
@@ -1220,7 +1235,7 @@ class AnsiString:
                        semicolons (;)
                        ex: ">10:bold;fg_red" to make output right justify with width of 10, bold and red formatting
         '''
-        if not __format_spec and not self._color_settings:
+        if not __format_spec and not self._fmts:
             # No formatting
             return self._s
 
@@ -1244,7 +1259,7 @@ class AnsiString:
         out_str = ''
         last_idx = 0
         clear_needed = False
-        for idx, settings, current_settings in __class__.SettingsIterator(obj._color_settings):
+        for idx, settings, current_settings in __class__.SettingsIterator(obj._fmts):
             if idx >= len(obj):
                 # Invalid
                 break
@@ -1300,10 +1315,10 @@ class AnsiString:
             right_spaces = num - left_spaces
             obj._s = fillchar * left_spaces + obj._s + fillchar * right_spaces
             # Move the removal settings from previous end to new end (formats the right fillchars with same as last char)
-            if old_len in obj._color_settings:
-                obj._color_settings[len(obj._s)] = obj._color_settings.pop(old_len)
+            if old_len in obj._fmts:
+                obj._fmts[len(obj._s)] = obj._fmts.pop(old_len)
             # Shift all indices except for the origin (formats the left fillchars with same as first char)
-            __class__._shift_settings_idx(obj._color_settings, left_spaces, True)
+            __class__._shift_settings_idx(obj._fmts, left_spaces, True)
 
         return obj
 
@@ -1322,8 +1337,8 @@ class AnsiString:
         if num > 0:
             obj._s += fillchar * num
             # Move the removal settings from previous end to new end (formats the right fillchars with same as last char)
-            if old_len in obj._color_settings:
-                obj._color_settings[len(obj._s)] = obj._color_settings.pop(old_len)
+            if old_len in obj._fmts:
+                obj._fmts[len(obj._s)] = obj._fmts.pop(old_len)
 
         return obj
 
@@ -1342,7 +1357,7 @@ class AnsiString:
         if num > 0:
             obj._s = fillchar * num + obj._s
             # Shift all indices except for the origin (formats the left fillchars with same as first char)
-            __class__._shift_settings_idx(obj._color_settings, num, True)
+            __class__._shift_settings_idx(obj._fmts, num, True)
 
         return obj
 
@@ -1411,13 +1426,41 @@ class AnsiString:
         elif isinstance(value, AnsiString):
             shift = len(self._s)
             self._s += value._s
-            for key, value in value._color_settings.items():
+            find_settings = []
+            replace_settings = []
+            for key, settings in value._fmts.items():
                 key += shift
-                if key in self._color_settings:
-                    self._color_settings[key].add.extend(value.add)
-                    self._color_settings[key].rem.extend(value.rem)
+                if key in self._fmts:
+                    if (
+                        key == shift
+                        and settings.add
+                        and self._fmts[key].rem[:len(settings.add)] == settings.add
+                    ):
+                        # Special case - the string being added contains same formatting as end of my string.
+                        # Because the settings work based on references instead of values, the settings not only
+                        # need to be removed here but changed where they are removed in the added string.
+                        find_settings = settings.add
+                        replace_settings = self._fmts[key].rem[:len(settings.add)]
+                        self._fmts[key].rem = self._fmts[key].rem[len(settings.add):]
+                        settings.add = []
+                        if not self._fmts[key] and not settings:
+                            del self._fmts[key]
+                            continue
+
+                    self._fmts[key].add.extend(settings.add)
+                    self._fmts[key].rem.extend(settings.rem)
+
                 else:
-                    self._color_settings[key] = value
+                    self._fmts[key] = __class__.SettingPoint(list(settings.add), list(settings.rem))
+
+                    finds = __class__._find_settings_references(find_settings, settings.rem)
+                    if finds:
+                        for find_idx, add_idx in reversed(finds):
+                            self._fmts[key].rem[add_idx] = replace_settings[find_idx]
+                            # Note: find_idx will always be sorted in ascending order and this is iterating in reverse
+                            del find_settings[find_idx]
+                            del replace_settings[find_idx]
+
         else:
             raise ValueError(f'value is invalid type: {type(value)}')
         return self
@@ -1425,7 +1468,7 @@ class AnsiString:
     def __eq__(self, value:'AnsiString') -> bool:
         if not isinstance(value, AnsiString):
             return False
-        return self._s == value._s and self._color_settings == value._color_settings
+        return self._s == value._s and self._fmts == value._fmts
 
     def __contains__(self, value:Union[str,'AnsiString',Any]) -> bool:
         if isinstance(value, str):
@@ -1492,7 +1535,7 @@ class AnsiString:
         obj = self[start:end]
         if inplace:
             self._s = obj._s
-            self._color_settings = obj._color_settings
+            self._fmts = obj._fmts
             del obj
             return self
         else:
@@ -1565,19 +1608,34 @@ class AnsiString:
         else:
             return (self.copy(), AnsiString(), AnsiString())
 
+    def rpartition(self, sep:str) -> Tuple['AnsiString','AnsiString','AnsiString']:
+        '''
+        Partition the string into three parts using the given separator, searching from right to left.
+
+        This will search for the separator in the string. If the separator is found, returns a 3-tuple containing the
+        part before the separator, the separator itself, and the part after it.
+
+        If the separator is not found, returns a 3-tuple containing the original string and two empty strings.
+        '''
+        idx = self._s.rfind(sep)
+        if idx >= 0:
+            sep_len = len(sep)
+            idx_end = idx + sep_len
+            return (self[0:idx], self[idx:idx_end], self[idx_end:])
+        else:
+            return (self.copy(), AnsiString(), AnsiString())
+
     def settings_at(self, idx:int) -> str:
         '''
         Returns a string which represents the settings being used at the given index
         '''
-        if idx == 0:
-            if 0 in self._color_settings:
-                return ';'.join(str(s) for s in self._color_settings[0].add)
-            else:
-                return ''
-        elif idx > 0 and idx < len(self._s):
-            c = self[idx]
-            # Recursive call, but it shouldn't recurse again
-            return c.settings_at(0)
+        if idx >= 0 and idx < len(self._s):
+            previous_settings = []
+            for sidx, _, current_settings in __class__.SettingsIterator(self._fmts):
+                if sidx > idx:
+                    break
+                previous_settings = list(current_settings)
+            return ';'.join(str(s) for s in previous_settings)
         else:
             return ''
 
@@ -1610,7 +1668,13 @@ class AnsiString:
 
         if inplace:
             self._s = obj._s
-            self._color_settings = obj._color_settings
+            self._fmts = obj._fmts
             return self
         else:
             return obj
+
+    def rfind(self, sub:str, start:int=None, end:int=None) -> int:
+        return self._s.rfind(sub, start, end)
+
+    def rindex(self, sub:str, start:int=None, end:int=None) -> int:
+        return self._s.rindex(sub, start, end)
