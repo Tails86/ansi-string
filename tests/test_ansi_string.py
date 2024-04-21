@@ -261,5 +261,62 @@ class CliTests(unittest.TestCase):
         s2 = s.rstrip()
         self.assertEqual(str(s2), '')
 
+    def test_partition_found(self):
+        s = AnsiString('This string will be formatted italic and purple', ['purple', 'italic'])
+        s_orig = s
+        out = s.partition('will')
+        self.assertEqual(
+            [str(s) for s in out],
+            ['\x1b[38;5;90;3mThis string \x1b[m', '\x1b[38;5;90;3mwill\x1b[m', '\x1b[38;5;90;3m be formatted italic and purple\x1b[m']
+        )
+        self.assertIs(s, s_orig)
+
+    def test_partition_not_found(self):
+        s = AnsiString('This string will be formatted italic and purple', ['purple', 'italic'])
+        s_orig = s
+        out = s.partition('bella')
+        self.assertEqual(
+            [str(s) for s in out],
+            ['\x1b[38;5;90;3mThis string will be formatted italic and purple\x1b[m', '', '']
+        )
+        self.assertIs(s, s_orig)
+
+
+    def test_get_item_edge_case(self):
+        # There used to be a bug where if a single character was retrieved right before the index where a new format was
+        # applied, it add a remove setting for something that didn't exist yet
+        s=AnsiString('This string will be formatted italic and purple', ['purple', 'italic'])
+        s.apply_formatting('bold', 5, 11)
+        self.assertEqual(str(s[4]), '\x1b[38;5;90;3m \x1b[m')
+        self.assertEqual(str(s[5]), '\x1b[38;5;90;3;1ms\x1b[m')
+
+    def test_settings_at(self):
+        s=AnsiString('This string will be formatted italic and purple', ['purple', 'italic'])
+        s.apply_formatting('bold', 5, 11)
+        self.assertEqual(s.settings_at(4), '38;5;90;3')
+        self.assertEqual(s.settings_at(5), '38;5;90;3;1')
+
+    def test_settings_at_no_format(self):
+        s=AnsiString('String without format')
+        self.assertEqual(s.settings_at(3), '')
+
+    def test_settings_at_out_of_range_high(self):
+        s=AnsiString('String without format', 'red')
+        self.assertEqual(s.settings_at(21), '')
+
+    def test_settings_at_out_of_range_low(self):
+        s=AnsiString('String without format', 'orange')
+        self.assertEqual(s.settings_at(-1), '')
+
+    def test_iterate(self):
+        s = AnsiString('one ', 'bg_yellow') + AnsiString('two ', AnsiFormat.UNDERLINE) + AnsiString('three', '1')
+        s2 = AnsiString()
+        # Recreate the original string by iterating the characters
+        for c in s:
+            s2 += c
+        # Should have created a whole new copy of the original
+        self.assertEqual(str(s), str(s2))
+        self.assertIsNot(s, s2)
+
 if __name__ == '__main__':
     unittest.main()

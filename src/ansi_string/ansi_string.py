@@ -837,9 +837,11 @@ class AnsiString:
             self._str = ';'.join(settings)
 
         def __eq__(self, value) -> bool:
-            if not isinstance(value, AnsiString.Settings):
-                return False
-            return self._str == value._str
+            if isinstance(value, str):
+                return self._str == value
+            elif isinstance(value, AnsiString.Settings):
+                return self._str == value._str
+            return False
 
         @staticmethod
         def _parse_rgb_string(s:str):
@@ -1044,6 +1046,20 @@ class AnsiString:
             self.current_settings += settings[AnsiString.SETTINGS_APPLY_IDX]
             return (idx, settings, self.current_settings)
 
+    class CharIterator:
+        def __init__(self, s):
+            self.current_idx = -1
+            self.s = s
+
+        def __iter__(self):
+            return self
+
+        def __next__(self) -> tuple:
+            self.current_idx += 1
+            if self.current_idx >= len(self.s):
+                raise StopIteration
+            return self.s[self.current_idx]
+
     def _slice_val_to_idx(self, val:int, default:int) -> int:
         if val is None:
             return default
@@ -1078,33 +1094,45 @@ class AnsiString:
             # Special case - string is now empty
             return new_s
 
-        last_settings = []
+        # String cannot be empty from this point on, so that will be assumed going forward
+
+        previous_settings = None
         settings_initialized = False
         for idx, settings, current_settings in __class__.SettingsIterator(self._color_settings):
             if idx > len(self._s) or idx > en:
-                if not settings_initialized and len(new_s) > 0 and last_settings:
-                    # Substring was between settings
-                    new_s._color_settings[0] = [last_settings, []]
-                # Because this class supports concatenation, it's necessary to remove all settings before ending
-                if last_settings:
-                    new_len = len(new_s._s)
-                    if new_len in new_s._color_settings:
-                        new_s._color_settings[new_len][1].extend(last_settings)
-                    else:
-                        new_s._color_settings[new_len] = [[], last_settings]
                 # Complete
                 break
-            if idx == st:
+            elif idx == en:
+                if settings[1]:
+                    new_s._color_settings[idx - st] = [[], list(settings[1])]
+                # Complete
+                break
+            elif idx == st:
                 if current_settings:
                     new_s._color_settings[0] = [list(current_settings), []]
                 settings_initialized = True
             elif idx > st:
-                if not settings_initialized and idx - st != 0 and last_settings:
-                    new_s._color_settings[0] = [last_settings, []]
+                if not settings_initialized and previous_settings is not None:
+                    if previous_settings:
+                        new_s._color_settings[0] = [previous_settings, []]
                     settings_initialized = True
                 new_s._color_settings[idx - st] = [list(settings[0]), list(settings[1])]
+
             # It's necessary to copy (i.e. call list()) since current_settings ref will change on next loop
-            last_settings = list(current_settings)
+            previous_settings = list(current_settings)
+
+        if not settings_initialized and previous_settings:
+            # Substring was between settings
+            new_s._color_settings[0] = [previous_settings, []]
+
+        # Because this class supports concatenation, it's necessary to remove all settings before ending
+        if previous_settings:
+            new_len = len(new_s._s)
+            if new_len not in new_s._color_settings:
+                new_s._color_settings[new_len] = [[], []]
+            settings_to_remove = [s for s in previous_settings if s not in new_s._color_settings[new_len][AnsiString.SETTINGS_REMOVE_IDX]]
+            new_s._color_settings[new_len][AnsiString.SETTINGS_REMOVE_IDX].extend(settings_to_remove)
+
         return new_s
 
     def __str__(self) -> str:
@@ -1206,6 +1234,9 @@ class AnsiString:
             out_str += __class__.ANSI_ESCAPE_CLEAR
 
         return out_str
+
+    def __iter__(self):
+        return iter(__class__.CharIterator(self))
 
     def capitalize(self):
         cpy = self.copy()
@@ -1336,6 +1367,40 @@ class AnsiString:
     def isupper(self) -> bool:
         return self._s.isupper()
 
+    def simplify_settings(self):
+        '''
+        Attempts to simplify ANSI formatting settings by removing redundant parameters. This does nothing to interrogate
+        custom formatting strings that were applied using "[" string prefix.
+        '''
+        previous_settings = [[],[]]
+        for idx, settings, current_settings in __class__.SettingsIterator(self._color_settings):
+            apply_list_original = list(settings[AnsiString.SETTINGS_APPLY_IDX])
+
+            # Remove settings that are redundantly reapplied
+            self._color_settings[idx][AnsiString.SETTINGS_APPLY_IDX] = [
+                s for s in settings[AnsiString.SETTINGS_APPLY_IDX] if s not in previous_settings
+            ]
+
+            # Remove settings that are being applied and removed within the same index
+            remove_list = settings[AnsiString.SETTINGS_REMOVE_IDX]
+            self._color_settings[idx][AnsiString.SETTINGS_APPLY_IDX] = [
+                v for v in settings[AnsiString.SETTINGS_APPLY_IDX] if v not in remove_list
+            ]
+            self._color_settings[idx][AnsiString.SETTINGS_REMOVE_IDX] = [
+                v for v in settings[AnsiString.SETTINGS_REMOVE_IDX] if v not in apply_list_original
+            ]
+
+            # Save for next loop
+            previous_settings = list(current_settings)
+
+        # Remove now empty indices
+        for idx in list(self._color_settings.keys()):
+            if (
+                not self._color_settings[idx][AnsiString.SETTINGS_APPLY_IDX]
+                and not self._color_settings[idx][AnsiString.SETTINGS_REMOVE_IDX]
+            ):
+                del self._color_settings[idx]
+
     def __add__(self, value):
         cpy = self.copy()
         cpy += value
@@ -1345,16 +1410,16 @@ class AnsiString:
         if isinstance(value, str):
             self._s += value
         elif isinstance(value, AnsiString):
-            value_cpy = value.copy()
-            settings_cpy = value_cpy._color_settings
-            __class__._shift_settings_idx(settings_cpy, len(self._s), False)
+            shift = len(self._s)
             self._s += value._s
-            for key, value in settings_cpy.items():
+            for key, value in value._color_settings.items():
+                key += shift
                 if key in self._color_settings:
-                    self._color_settings[key][0].extend(value[0])
-                    self._color_settings[key][1].extend(value[1])
+                    self._color_settings[key][AnsiString.SETTINGS_APPLY_IDX].extend(value[AnsiString.SETTINGS_APPLY_IDX])
+                    self._color_settings[key][AnsiString.SETTINGS_REMOVE_IDX].extend(value[AnsiString.SETTINGS_REMOVE_IDX])
                 else:
                     self._color_settings[key] = value
+            self.simplify_settings()
         else:
             raise ValueError(f'value is invalid type: {type(value)}')
         return self
@@ -1478,3 +1543,36 @@ class AnsiString:
             return self
         else:
             return obj
+
+    def partition(self, sep:str):
+        '''
+        Partition the string into three parts using the given separator.
+
+        This will search for the separator in the string. If the separator is found, returns a 3-tuple containing the
+        part before the separator, the separator itself, and the part after it.
+
+        If the separator is not found, returns a 3-tuple containing the original string and two empty strings.
+        '''
+        idx = self._s.find(sep)
+        if idx >= 0:
+            sep_len = len(sep)
+            idx_end = idx + sep_len
+            return (self[0:idx], self[idx:idx_end], self[idx_end:])
+        else:
+            return (self.copy(), AnsiString(), AnsiString())
+
+    def settings_at(self, idx:int):
+        '''
+        Returns a string which represents the settings being used at the given index
+        '''
+        if idx == 0:
+            if 0 in self._color_settings:
+                return ';'.join(str(s) for s in self._color_settings[0][self.SETTINGS_APPLY_IDX])
+            else:
+                return ''
+        elif idx > 0 and idx < len(self._s):
+            c = self[idx]
+            # Recursive call, but it shouldn't recurse again
+            return c.settings_at(0)
+        else:
+            return ''
