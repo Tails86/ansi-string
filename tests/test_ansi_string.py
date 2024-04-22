@@ -427,10 +427,17 @@ class CliTests(unittest.TestCase):
         c = a + b
         self.assertEqual(str(c), '\x1b[31;1mabcx\x1b[0;1my\x1b[mz')
 
+    def test_replace_inplace(self):
+        s=AnsiString('This string will be formatted italic and purple', ['purple', 'italic'])
+        s2 = s.replace('formatted', AnsiString('formatted', 'bg_red'), inplace=True)
+        self.assertEqual(str(s), '\x1b[38;5;90;3mThis string will be \x1b[0;41mformatted\x1b[0;38;5;90;3m italic and purple\x1b[m')
+        self.assertIs(s, s2)
+
     def test_replace(self):
         s=AnsiString('This string will be formatted italic and purple', ['purple', 'italic'])
-        s.replace('formatted', AnsiString('formatted', 'bg_red'), inplace=True)
-        self.assertEqual(str(s), '\x1b[38;5;90;3mThis string will be \x1b[0;41mformatted\x1b[0;38;5;90;3m italic and purple\x1b[m')
+        s2 = s.replace('formatted', AnsiString('formatted', 'bg_red'), inplace=False)
+        self.assertEqual(str(s2), '\x1b[38;5;90;3mThis string will be \x1b[0;41mformatted\x1b[0;38;5;90;3m italic and purple\x1b[m')
+        self.assertEqual(str(s), '\x1b[38;5;90;3mThis string will be formatted italic and purple\x1b[m')
 
     def test_split_whitespace(self):
         s = AnsiString('\t this  \t\nstring contains\tmany\r\n\f\vspaces ', 'red', 'bold')

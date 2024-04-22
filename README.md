@@ -7,7 +7,7 @@ ANSI String Formatter in Python for CLI Color and Style Formatting
 This code was originally written for [greplica](https://pypi.org/project/greplica/), but I felt it deserved its own, separate library.
 
 The main goals for this project are:
-- To provide a simple way to construct an object with ANSI formatting without requiring the developer to know how ANSI formatting works
+- To provide a simple way to construct a string-like object with embedded ANSI formatting without requiring the developer to know how ANSI formatting works
 - Provide a way to further format the object using format string
 - Allow for concatenation of the object
 
@@ -58,17 +58,22 @@ class AnsiString:
     def __init__(self, s:str='', *setting_or_settings:Union[List[str], str, List[int], int, List[AnsiFormat], AnsiFormat]): ...
 ```
 
-The first argument, `s`, is a string to be formatted. The next 0 to N arguments are formatting directives that can be applied to the entire string. These arguments can be in the form of any of the following:
-- A string color name for a formatting directive (i.e. any name of the AnsiFormat enum in lower or upper case)
-- An AnsiFormat directive (ex: `AnsiFormat.BOLD`)
+The first argument, `s`, is a string to be formatted. The next 0 to N arguments are formatting setting directives that can be applied to the entire string. These arguments can be in the form of any of the following.
+- An AnsiFormat enum (ex: `AnsiFormat.BOLD`)
+- A string color or formatting name (i.e. any name of the AnsiFormat enum in lower or upper case)
+- The result of calling `AnsiFormat.rgb()`, `AnsiFormat.fg_rgb()`, `AnsiFormat.bg_rgb()`, or `AnsiFormat.ul_rgb()`
 - An `rgb(...)` function directive as a string (ex: `"rgb(255, 255, 255)"`)
     - `rgb(...)` or `fg_rgb(...)` to adjust text color
     - `bg_rgb(...)` to adjust background color
     - `ul_rgb(...)` to enable underline and set the underline color
     - Value given may be either a 24-bit integer or 3 x 8-bit integers, separated by commas
     - Each given value within the parenthesis is treated as hexadecimal if the value starts with "0x", otherwise it is treated as a decimal value
+
+A formatting setting may also be any of the following, but it's not advised to specify settings these ways unless there is a specific reason to do so.
+- An AnsiSetting object
 - A string containing known ANSI directives (ex: `"01;31"` for BOLD and FG_RED)
-    - The string will normally be parsed into their individual values and verified unless the character "[" is the first character of the string (ex: `"[01;31"`)
+    - The string will normally be parsed into separate settings unless the character "[" is the first character of the string (ex: `"[38;5;214"`)
+    - Never specify the reset directive (0) because this is implicitly handled internally
 - A single ANSI directive as an integer
 
 Examples:
