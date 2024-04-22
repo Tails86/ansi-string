@@ -22,7 +22,7 @@ To install, ensure you are connected to the internet and execute: `python3 -m pi
 
 ## Examples
 
-![Examples](https://raw.githubusercontent.com/Tails86/ansi-string/0e2c943f25ccc219256204511fd308652a8075c0/docs/examples.jpg)
+![Examples](https://raw.githubusercontent.com/Tails86/ansi-string/36530493c87e282914d23d551ce427203fcd2719/docs/examples.jpg)
 
 Refer to the [test file](https://github.com/Tails86/ansi-string/blob/main/tests/test_ansi_string.py) for more examples on how to use the AnsiString class.
 
