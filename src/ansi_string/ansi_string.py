@@ -1433,6 +1433,9 @@ class AnsiString:
         return self._s.isalpha()
 
     def isascii(self) -> bool:
+        '''
+        This is only available for Python >=3.7
+        '''
         return self._s.isascii()
 
     def isdecimal(self) -> bool:

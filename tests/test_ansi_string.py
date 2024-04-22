@@ -664,9 +664,10 @@ class CliTests(unittest.TestCase):
         s = AnsiString('AnsiString', AnsiFormat.rgb(0, 0, 0))
         self.assertTrue(s.isidentifier())
 
-    def test_is_ascii_true(self):
-        s = AnsiString('1', AnsiFormat.rgb(0, 0, 0))
-        self.assertTrue(s.isascii())
+    # Removed this test to be compatible with Python 3.6
+    # def test_is_ascii_true(self):
+    #     s = AnsiString('1', AnsiFormat.rgb(0, 0, 0))
+    #     self.assertTrue(s.isascii())
 
     def test_is_alpha_true(self):
         s = AnsiString('a', AnsiFormat.rgb(0, 0, 0))
