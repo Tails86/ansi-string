@@ -28,6 +28,15 @@ class FakeStdIn:
         self.buffer = BytesIO(loaded_str)
 
 class CliTests(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        AnsiString.WITH_ASSERTIONS = True
+
+    def test_verify_assertions_enabled(self):
+        # Sanity check
+        self.assertTrue(AnsiString.WITH_ASSERTIONS)
+
     def test_en_tty_ansi(self):
         # Not a very useful test
         en_tty_ansi()
@@ -104,7 +113,7 @@ class CliTests(unittest.TestCase):
         bg_colors = (100, 232, 170)
         ul_colors = [0xFF, 0x63, 0x47]
         self.assertEqual(
-            f'{s::rgb({fg_color});bg_rgb{bg_colors};ul_rgb({ul_colors})}',
+            f'{s::rgb({fg_color});bg_rgb({bg_colors});ul_rgb({ul_colors})}',
             '\x1b[38;2;138;43;226;48;2;100;232;170;4;58;2;255;99;71mManually adjust colors of foreground, background, and underline\x1b[m'
         )
 
@@ -228,6 +237,17 @@ class CliTests(unittest.TestCase):
         s2 = s.strip()
         self.assertEqual(str(s2), '')
 
+    def test_strip_no_right(self):
+        s = AnsiString('    b', 'bold;red')
+        s2 = s.strip()
+        self.assertEqual(str(s2), '\x1b[1;31mb\x1b[m')
+
+    def test_strip_no_change(self):
+        s = AnsiString('b', 'bold;red')
+        s2 = s.strip(inplace=True)
+        self.assertEqual(str(s2), '\x1b[1;31mb\x1b[m')
+        self.assertIs(s, s2)
+
     def test_lstrip(self):
         s = AnsiString('    T\t\r\n \v\f', 'bold;red')
         s2 = s.lstrip()
@@ -284,6 +304,26 @@ class CliTests(unittest.TestCase):
         s = AnsiString('This string will be formatted italic and purple', ['purple', 'italic'])
         s_orig = s
         out = s.partition('bella')
+        self.assertEqual(
+            [str(s) for s in out],
+            ['\x1b[38;5;90;3mThis string will be formatted italic and purple\x1b[m', '', '']
+        )
+        self.assertIs(s, s_orig)
+
+    def test_rpartition_found(self):
+        s = AnsiString('This string will be formatted italic and purple', ['purple', 'italic'])
+        s_orig = s
+        out = s.rpartition('l')
+        self.assertEqual(
+            [str(s) for s in out],
+            ['\x1b[38;5;90;3mThis string will be formatted italic and purp\x1b[m', '\x1b[38;5;90;3ml\x1b[m', '\x1b[38;5;90;3me\x1b[m']
+        )
+        self.assertIs(s, s_orig)
+
+    def test_rpartition_not_found(self):
+        s = AnsiString('This string will be formatted italic and purple', ['purple', 'italic'])
+        s_orig = s
+        out = s.rpartition('x')
         self.assertEqual(
             [str(s) for s in out],
             ['\x1b[38;5;90;3mThis string will be formatted italic and purple\x1b[m', '', '']
@@ -435,6 +475,12 @@ class CliTests(unittest.TestCase):
         self.assertEqual(str(s2), '\x1b[31;1mMake This String A Title For Some Book\x1b[m')
         self.assertEqual(str(s), '\x1b[31;1mmake this String a title for some book\x1b[m')
 
+    def test_capitalize(self):
+        s = AnsiString('make this String a title for some book', 'red', 'bold')
+        s2 = s.capitalize(inplace=False)
+        self.assertEqual(str(s2), '\x1b[31;1mMake this string a title for some book\x1b[m')
+        self.assertEqual(str(s), '\x1b[31;1mmake this String a title for some book\x1b[m')
+
     def test_cat_edge_case3(self):
         # There was a bug when copy() was used and the string didn't start with any formatting
         s = AnsiString.join('This ', AnsiString('string', AnsiFormat.ORANGE), ' contains ')
@@ -473,6 +519,255 @@ class CliTests(unittest.TestCase):
             'Here is a strING that I will match \x1b[36;48;2;255;192;203mformatting\x1b[m'
         )
 
+    def test_setting_eq_str(self):
+        s = AnsiString('This is an ansi string', 'BG_BURLY_WOOD')
+        self.assertEqual(s.settings_at(0), '48;2;222;184;135')
+
+    def test_rfind(self):
+        s = AnsiString('hello hello', AnsiFormat.rgb(0, 0, 0))
+        result = s.rfind('ll')
+        self.assertEqual(result, 8)
+
+    def test_find(self):
+        s = AnsiString('hello hello', AnsiFormat.rgb(0, 0, 0))
+        result = s.find('ll')
+        self.assertEqual(result, 2)
+
+    def test_index(self):
+        s = AnsiString('hello hello', AnsiFormat.rgb(0, 0, 0))
+        result = s.index('ll')
+        self.assertEqual(result, 2)
+
+    def test_rindex(self):
+        s = AnsiString('hello hello', AnsiFormat.rgb(0, 0, 0))
+        result = s.rindex('ll')
+        self.assertEqual(result, 8)
+
+    def test_upper_inplace(self):
+        s = AnsiString('hello hello', AnsiFormat.rgb(0, 0, 0))
+        s2 = s.upper(inplace=True)
+        self.assertEqual(
+            str(s2),
+            '\x1b[38;2;0;0;0mHELLO HELLO\x1b[m'
+        )
+        self.assertIs(s, s2)
+
+    def test_upper(self):
+        s = AnsiString('hello hello', AnsiFormat.rgb(0, 0, 0))
+        s2 = s.upper()
+        self.assertEqual(
+            str(s2),
+            '\x1b[38;2;0;0;0mHELLO HELLO\x1b[m'
+        )
+        self.assertIsNot(s, s2)
+
+    def test_lower_inplace(self):
+        s = AnsiString('HELLO HELLO', AnsiFormat.rgb(0, 0, 0))
+        s2 = s.lower(inplace=True)
+        self.assertEqual(
+            str(s2),
+            '\x1b[38;2;0;0;0mhello hello\x1b[m'
+        )
+        self.assertIs(s, s2)
+
+    def test_casefold_inplace(self):
+        s = AnsiString('HELLO HELLO', AnsiFormat.rgb(0, 0, 0))
+        s2 = s.casefold(inplace=True)
+        self.assertEqual(
+            str(s2),
+            '\x1b[38;2;0;0;0mhello hello\x1b[m'
+        )
+        self.assertIs(s, s2)
+
+    def test_lower(self):
+        s = AnsiString('HELLO HELLO', AnsiFormat.rgb(0, 0, 0))
+        s2 = s.lower()
+        self.assertEqual(
+            str(s2),
+            '\x1b[38;2;0;0;0mhello hello\x1b[m'
+        )
+        self.assertIsNot(s, s2)
+
+    def test_join_no_args(self):
+        s = AnsiString.join()
+        self.assertEqual(str(s), '')
+
+    def test_join_AnsiString_first_arg(self):
+        s = AnsiString.join(AnsiString('hello hello', AnsiFormat.rgb(0, 0, 0)))
+        self.assertEqual(str(s), '\x1b[38;2;0;0;0mhello hello\x1b[m')
+
+    def test_in_w_str_true(self):
+        s = AnsiString('This is an ansi string', 'BG_BURLY_WOOD')
+        self.assertIn('is', s)
+
+    def test_in_w_str_false(self):
+        s = AnsiString('This is an ansi string', 'BG_BURLY_WOOD')
+        self.assertNotIn('the', s)
+
+    def test_in_w_AnsiString_true(self):
+        s = AnsiString('This is an ansi string', 'BG_BURLY_WOOD')
+        self.assertIn(AnsiString('is'), s)
+
+    def test_in_w_AnsiString_false(self):
+        s = AnsiString('This is an ansi string', 'BG_BURLY_WOOD')
+        self.assertNotIn(AnsiString('the'), s)
+
+    def test_eq_int(self):
+        s = AnsiString('This is an ansi string', 'BG_BURLY_WOOD')
+        self.assertNotEqual(s, 1)
+
+    def test_is_upper_true(self):
+        s = AnsiString('HELLO HELLO', AnsiFormat.rgb(0, 0, 0))
+        self.assertTrue(s.isupper())
+
+    def test_is_upper_false(self):
+        s = AnsiString('hELLO HELLO', AnsiFormat.rgb(0, 0, 0))
+        self.assertFalse(s.isupper())
+
+    def test_is_lower_true(self):
+        s = AnsiString('hello hello', AnsiFormat.rgb(0, 0, 0))
+        self.assertTrue(s.islower())
+
+    def test_is_lower_false(self):
+        s = AnsiString('Hello', AnsiFormat.rgb(0, 0, 0))
+        self.assertFalse(s.islower())
+
+    def test_is_title_true(self):
+        s = AnsiString('Hello Hello', AnsiFormat.rgb(0, 0, 0))
+        self.assertTrue(s.istitle())
+
+    def test_is_title_false(self):
+        s = AnsiString('Hello hello', AnsiFormat.rgb(0, 0, 0))
+        self.assertFalse(s.istitle())
+
+    def test_is_space_true(self):
+        s = AnsiString(' ', AnsiFormat.rgb(0, 0, 0))
+        self.assertTrue(s.isspace())
+
+    def test_is_printable_true(self):
+        s = AnsiString(' dsfasdf', AnsiFormat.rgb(0, 0, 0))
+        self.assertTrue(s.isprintable())
+
+    def test_is_numeric_true(self):
+        s = AnsiString('1', AnsiFormat.rgb(0, 0, 0))
+        self.assertTrue(s.isnumeric())
+
+    def test_is_digit_true(self):
+        s = AnsiString('1', AnsiFormat.rgb(0, 0, 0))
+        self.assertTrue(s.isdigit())
+
+    def test_is_decimal_true(self):
+        s = AnsiString('1', AnsiFormat.rgb(0, 0, 0))
+        self.assertTrue(s.isdecimal())
+
+    def test_is_identifier_true(self):
+        s = AnsiString('AnsiString', AnsiFormat.rgb(0, 0, 0))
+        self.assertTrue(s.isidentifier())
+
+    def test_is_ascii_true(self):
+        s = AnsiString('1', AnsiFormat.rgb(0, 0, 0))
+        self.assertTrue(s.isascii())
+
+    def test_is_alpha_true(self):
+        s = AnsiString('a', AnsiFormat.rgb(0, 0, 0))
+        self.assertTrue(s.isalpha())
+
+    def test_is_alnum_true(self):
+        s = AnsiString('1', AnsiFormat.rgb(0, 0, 0))
+        self.assertTrue(s.isalnum())
+
+    def test_expand_tabs(self):
+        s = AnsiString('\ta\tb\n\tc', AnsiFormat.rgb(0, 0, 0))
+        s.expandtabs(4, inplace=True)
+        self.assertEqual(str(s), '\x1b[38;2;0;0;0m    a    b\n    c\x1b[m')
+
+    def test_endswith(self):
+        s = AnsiString('This is an ansi string', 'BG_BURLY_WOOD')
+        self.assertTrue(s.endswith('string'))
+
+    def test_encode(self):
+        s = AnsiString('Hello Hello', 'bold')
+        self.assertEqual(s.encode(), b'\x1b[1mHello Hello\x1b[m')
+
+    def test_count(self):
+        s = AnsiString('Hello Hello mmm', 'bold')
+        self.assertEqual(s.count('m'), 3)
+
+    def test_clear_formatting(self):
+        s = AnsiString('Hello Hello', 'bold')
+        s.clear_formatting()
+        self.assertEqual(str(s), 'Hello Hello')
+
+    def test_base_str(self):
+        s = AnsiString('Hello Hello', 'bold')
+        self.assertEqual(s.base_str, 'Hello Hello')
+
+
+
+
+    # Exceptions tests
+
+    def test_AnsiFormat_rgb_r_not_set(self):
+        with self.assertRaises(ValueError):
+            AnsiFormat.rgb(None)
+
+    def test_AnsiFormat_rgb_g_without_b(self):
+        with self.assertRaises(ValueError):
+            AnsiFormat.rgb(100, 100)
+
+    def test_AnsiFormat_rgb_b_without_g(self):
+        with self.assertRaises(ValueError):
+            AnsiFormat.rgb(100, b=100)
+
+    def test_invalid_rgb_values1(self):
+        with self.assertRaises(ValueError):
+            AnsiString('!', 'rgb(F)')
+
+    def test_invalid_rgb_values3(self):
+        with self.assertRaises(ValueError):
+            AnsiString('!', 'rgb(0,0,F)')
+
+    def test_invalid_int(self):
+        with self.assertRaises(ValueError):
+            AnsiString('!', -1)
+
+    def test_invalid_name(self):
+        with self.assertRaises(ValueError):
+            AnsiString('!', 'no setting')
+
+    def test_getitem_invalid_step_size(self):
+        s = AnsiString('!')
+        with self.assertRaises(ValueError):
+            s = s[0:1:2]
+
+    def test_getitem_invalid_type(self):
+        s = AnsiString('!')
+        with self.assertRaises(TypeError):
+            s = s[""]
+
+    def test_string_format_sign_not_allowed(self):
+        s = AnsiString('!')
+        with self.assertRaises(ValueError):
+            '{:^+10}'.format(s)
+
+    def test_string_format_space_not_allowed(self):
+        s = AnsiString('!')
+        with self.assertRaises(ValueError):
+            '{:^ 10}'.format(s)
+
+    def test_string_format_invalid(self):
+        s = AnsiString('!')
+        with self.assertRaises(ValueError):
+            '{:djhfjd}'.format(s)
+
+    def test_cat_invalid_type(self):
+        s = AnsiString('!')
+        with self.assertRaises(TypeError):
+            s += 1
+
+    def test_join_first_arg_invalid_type(self):
+        with self.assertRaises(TypeError):
+            AnsiString.join(1)
 
 if __name__ == '__main__':
     unittest.main()

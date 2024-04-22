@@ -36,7 +36,7 @@ from ansi_string import en_tty_ansi, AnsiFormat, AnsiString
 
 ### Enabling ANSI Formatting
 
-Windows requires ANSI formatting to be enabled before it can be used. This can either be set in the environment or by simply calling the following before printing so that ANSI is enabled locally. This returns True when successful.
+Windows requires ANSI formatting to be enabled before it can be used. This can either be set in the environment or by simply calling the following before printing so that ANSI is enabled locally.
 ```py
 en_tty_ansi()
 ```
@@ -47,7 +47,7 @@ import sys
 en_tty_ansi(sys.stderr)
 ```
 
-This function serves no purpose outside of Windows OS and will simply return True without action in those cases.
+For Windows, this returns True if the given IO is a TTY (i.e. not piped to a file) and enabling ANSI was successful. For all other operating systems, this will return True if and only if the given IO is a TTY; no other action is taken.
 
 ### Construction
 
@@ -66,9 +66,9 @@ The first argument, `s`, is a string to be formatted. The next 0 to N arguments 
     - `bg_rgb(...)` to adjust background color
     - `ul_rgb(...)` to enable underline and set the underline color
     - Value given may be either a 24-bit integer or 3 x 8-bit integers, separated by commas
-    - Each given value within the parenthesis is treated as hexadecimal if the value starts with "0x", otherwise it will be treated as a decimal value
+    - Each given value within the parenthesis is treated as hexadecimal if the value starts with "0x", otherwise it is treated as a decimal value
 - A string containing known ANSI directives (ex: `"01;31"` for BOLD and FG_RED)
-    - The string will normally be parsed and verified unless the character "[" is the first character of the string
+    - The string will normally be parsed into their individual values and verified unless the character "[" is the first character of the string (ex: `"[01;31"`)
 - A single ANSI directive as an integer
 
 Examples:
@@ -136,3 +136,7 @@ s = AnsiString("Here is a strING that I will match formatting")
 s.format_matching("[A-Za-z]+ing", "cyan", AnsiFormat.BG_PINK, regex=True, match_case=True)
 print(s)
 ```
+
+### Other String Manipulation Methods
+
+Many other methods that are found in the `str` class such as `replace()` are available in `AnsiString` which manipulate the string while applying formatting where necessary.

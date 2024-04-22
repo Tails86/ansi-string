@@ -27,7 +27,7 @@ from enum import Enum, auto as enum_auto
 import io
 from typing import Any, Union, List, Dict, Tuple
 
-__version__ = '1.0.1'
+__version__ = '1.0.2'
 PACKAGE_NAME = 'ansi-string'
 
 WHITESPACE_CHARS = ' \t\n\r\v\f'
@@ -766,11 +766,11 @@ class AnsiFormat(Enum):
             b=min(255, max(0, b))
 
         if component == ColorComponentType.UNDERLINE:
-            return f'{__class__.UNDERLINE.value};{__class__.SET_UNDERLINE_COLOR_RGB.value};{r};{g};{b}'
+            return f'[{__class__.UNDERLINE.value};{__class__.SET_UNDERLINE_COLOR_RGB.value};{r};{g};{b}'
         elif component == ColorComponentType.BACKGROUND:
-            return f'{__class__.BG_SET_RGB.value};{r};{g};{b}'
+            return f'[{__class__.BG_SET_RGB.value};{r};{g};{b}'
         else:
-            return f'{__class__.FG_SET_RGB.value};{r};{g};{b}'
+            return f'[{__class__.FG_SET_RGB.value};{r};{g};{b}'
 
 class AnsiString:
     '''
@@ -812,6 +812,9 @@ class AnsiString:
     ANSI_ESCAPE_FORMAT = '\x1b[{}m'
     # The escape sequence which will clear all previous formatting (empty command is same as 0)
     ANSI_ESCAPE_CLEAR = ANSI_ESCAPE_FORMAT.format('')
+
+    # Change this to True for testing
+    WITH_ASSERTIONS = False
 
     # This isn't in AnsiFormat because it shouldn't be used externally
     RESET = '0'
@@ -867,7 +870,7 @@ class AnsiString:
             }
 
             # rgb(), fg_rgb(), bg_rgb(), or ul_rgb() with 3 distinct values as decimal or hex
-            match = re.search(r'^((?:fg_)?|(?:bg_)|(?:ul_))rgb\(\[?\s*(0x)?([0-9a-fA-F]+)\s*,\s*(0x)?([0-9a-fA-F]+)\s*,\s*(0x)?([0-9a-fA-F]+)\s*\]?\)$', s)
+            match = re.search(r'^((?:fg_)?|(?:bg_)|(?:ul_))rgb\([\[\()]?\s*(0x)?([0-9a-fA-F]+)\s*,\s*(0x)?([0-9a-fA-F]+)\s*,\s*(0x)?([0-9a-fA-F]+)\s*[\)\]]?\)$', s)
             if match:
                 try:
                     r = int(match.group(3), 16 if match.group(2) else 10)
@@ -875,16 +878,18 @@ class AnsiString:
                     b = int(match.group(7), 16 if match.group(6) else 10)
                 except ValueError:
                     raise ValueError('Invalid rgb value(s)')
-                return AnsiFormat.rgb(r, g, b, component_dict.get(match.group(1), ColorComponentType.FOREGROUND))
+                # Get RGB format and remove the leading '['
+                return AnsiFormat.rgb(r, g, b, component_dict.get(match.group(1), ColorComponentType.FOREGROUND))[1:]
 
             # rgb(), fg_rgb(), bg_rgb(), or ul_rgb() with 1 value as decimal or hex
-            match = re.search(r'^((?:fg_)?|(?:bg_)|(?:ul_))rgb\(\[?\s*(0x)?([0-9a-fA-F]+)\s*\]?\)$', s)
+            match = re.search(r'^((?:fg_)?|(?:bg_)|(?:ul_))rgb\([\[\()]?\s*(0x)?([0-9a-fA-F]+)\s*[\)\]]?\)$', s)
             if match:
                 try:
                     rgb = int(match.group(3), 16 if match.group(2) else 10)
                 except ValueError:
                     raise ValueError('Invalid rgb value')
-                return AnsiFormat.rgb(rgb, component=component_dict.get(match.group(1), ColorComponentType.FOREGROUND))
+                # Get RGB format and remove the leading '['
+                return AnsiFormat.rgb(rgb, component=component_dict.get(match.group(1), ColorComponentType.FOREGROUND))[1:]
             return None
 
         @staticmethod
@@ -912,8 +917,8 @@ class AnsiString:
                                 int_value = int(format)
                                 # 0 should never be used because it will mess with internal assumptions
                                 # Negative values are invalid
-                                if int_value <= 0:
-                                    raise ValueError(f'Invalid value [{int_value}]; must be greater than 0')
+                                if int_value < 0:
+                                    raise ValueError(f'Invalid value [{int_value}]; must be greater than or equal to 0')
                             except ValueError:
                                 raise ValueError(
                                     'AnsiString.__format__ failed to parse format ({}); invalid name: {}'
@@ -1126,7 +1131,8 @@ class AnsiString:
                 remove_idx = AnsiString._find_setting_reference(setting, self.current_settings)
                 if remove_idx >= 0:
                     del self.current_settings[remove_idx]
-                else:
+                elif AnsiString.WITH_ASSERTIONS:
+                    # This exception is really only useful in testing
                     raise ValueError('could not remove setting: not in list')
             # Apply settings that it is time to add
             self.current_settings += settings.add
@@ -1323,15 +1329,21 @@ class AnsiString:
     def __iter__(self):
         return iter(__class__.CharIterator(self))
 
-    def capitalize(self) -> 'AnsiString':
-        cpy = self.copy()
-        cpy._s = cpy._s.capitalize()
-        return cpy
+    def capitalize(self, inplace:bool=False) -> 'AnsiString':
+        if inplace:
+            obj = self
+        else:
+            obj = self.copy()
+        obj._s = obj._s.capitalize()
+        return obj
 
-    def casefold(self) -> 'AnsiString':
-        cpy = self.copy()
-        cpy._s = cpy._s.casefold()
-        return cpy
+    def casefold(self, inplace:bool=False) -> 'AnsiString':
+        if inplace:
+            obj = self
+        else:
+            obj = self.copy()
+        obj._s = obj._s.casefold()
+        return obj
 
     def center(self, width:int, fillchar:str=' ', inplace:bool=False) -> 'AnsiString':
         '''
@@ -1396,7 +1408,7 @@ class AnsiString:
 
         return obj
 
-    def count(self, sub:str, start:int, end:int) -> int:
+    def count(self, sub:str, start:int=None, end:int=None) -> int:
         return self._s.count(sub, start, end)
 
     def encode(self, encoding:str="utf-8", errors:str="strict") -> bytes:
@@ -1497,7 +1509,7 @@ class AnsiString:
                             del replace_settings[find_idx]
 
         else:
-            raise ValueError(f'value is invalid type: {type(value)}')
+            raise TypeError(f'value is invalid type: {type(value)}')
         return self
 
     def __eq__(self, value:'AnsiString') -> bool:
@@ -1526,7 +1538,7 @@ class AnsiString:
         elif isinstance(first_arg, AnsiString):
             joint = first_arg.copy()
         else:
-            raise ValueError(f'value is invalid type: {type(first_arg)}')
+            raise TypeError(f'value is invalid type: {type(first_arg)}')
         for arg in args[1:]:
             joint += arg
         return joint
@@ -1552,7 +1564,7 @@ class AnsiString:
             obj = self
         else:
             obj = self.copy()
-        obj._s = obj._s.lower()
+        obj._s = obj._s.upper()
         return obj
 
     def lstrip(self, chars:str=None, inplace:bool=False) -> 'AnsiString':
@@ -1660,19 +1672,22 @@ class AnsiString:
         else:
             return (self.copy(), AnsiString(), AnsiString())
 
-    def settings_at(self, idx:int) -> str:
-        '''
-        Returns a string which represents the settings being used at the given index
-        '''
+    def _settings_at(self, idx:int) -> List[Setting]:
         if idx >= 0 and idx < len(self._s):
             previous_settings = []
             for sidx, _, current_settings in __class__.SettingsIterator(self._fmts):
                 if sidx > idx:
                     break
                 previous_settings = list(current_settings)
-            return ';'.join(str(s) for s in previous_settings)
+            return previous_settings
         else:
-            return ''
+            return []
+
+    def settings_at(self, idx:int) -> str:
+        '''
+        Returns a string which represents the settings being used at the given index
+        '''
+        return ';'.join(str(s) for s in self._settings_at(idx))
 
     def removeprefix(self, prefix:str, inplace:bool=False) -> 'AnsiString':
         if not self._s.startswith(prefix):
@@ -1693,13 +1708,21 @@ class AnsiString:
             return self.clip(end=-len(suffix), inplace=inplace)
 
     def replace(self, old:str, new:Union[str,'AnsiString'], count:int=-1, inplace:bool=False) -> 'AnsiString':
+        '''
+        Does a find-and-replace - if new is a str, the string the is applied will take on the format settings of the
+        first character of the old string in each replaced item.
+        '''
         obj = self
-        idx = self._s.find(old)
+        idx = obj._s.find(old)
         while (count < 0 or count > 0) and idx >= 0:
-            obj = self[:idx] + new + self[idx+len(new):]
+            if isinstance(new, str):
+                replace = AnsiString(new, obj._settings_at(idx))
+            else:
+                replace = new
+            obj = obj[:idx] + replace + obj[idx+len(old):]
             if count > 0:
                 count -= 1
-            idx = self._s.find(old, idx + len(old))
+            idx = obj._s.find(old, idx + len(new))
 
         if inplace:
             self._s = obj._s
