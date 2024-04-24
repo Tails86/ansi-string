@@ -60,8 +60,8 @@ class AnsiString:
 
 The first argument, `s`, is a string to be formatted. The next 0 to N arguments are formatting setting directives that can be applied to the entire string. These arguments can be in the form of any of the following.
 - An AnsiFormat enum (ex: `AnsiFormat.BOLD`)
-- A string color or formatting name (i.e. any name of the AnsiFormat enum in lower or upper case)
 - The result of calling `AnsiFormat.rgb()`, `AnsiFormat.fg_rgb()`, `AnsiFormat.bg_rgb()`, or `AnsiFormat.ul_rgb()`
+- A string color or formatting name (i.e. any name of the AnsiFormat enum in lower or upper case)
 - An `rgb(...)` function directive as a string (ex: `"rgb(255, 255, 255)"`)
     - `rgb(...)` or `fg_rgb(...)` to adjust text color
     - `bg_rgb(...)` to adjust background color
@@ -69,7 +69,7 @@ The first argument, `s`, is a string to be formatted. The next 0 to N arguments 
     - Value given may be either a 24-bit integer or 3 x 8-bit integers, separated by commas
     - Each given value within the parenthesis is treated as hexadecimal if the value starts with "0x", otherwise it is treated as a decimal value
 
-A formatting setting may also be any of the following, but it's not advised to specify settings these ways unless there is a specific reason to do so.
+A formatting setting may also be any of the following, but it's not advised to specify settings in any of these ways unless there is a specific reason to do so.
 - An AnsiSetting object
 - A string containing known ANSI directives (ex: `"01;31"` for BOLD and FG_RED)
     - The string will normally be parsed into separate settings unless the character "[" is the first character of the string (ex: `"[38;5;214"`)

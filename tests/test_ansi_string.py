@@ -713,6 +713,7 @@ class CliTests(unittest.TestCase):
 
 
 
+
     # Exceptions tests
 
     def test_AnsiFormat_rgb_r_not_set(self):
