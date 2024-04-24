@@ -35,9 +35,10 @@ class AnsiSetting:
         return self._str
 
 class ColorComponentType(Enum):
-    UNDERLINE=enum_auto(),
     FOREGROUND=enum_auto(),
-    BACKGROUND=enum_auto()
+    BACKGROUND=enum_auto(),
+    UNDERLINE=enum_auto(),
+    DOUBLE_UNDERLINE=enum_auto()
 
 ColourComponentType = ColorComponentType  # Alias for my British English friends
 
@@ -57,6 +58,12 @@ class _AnsiControlFn(Enum):
     SET_UNDERLINE_COLOUR_24_BIT=SET_UNDERLINE_COLOR_24_BIT # Alias for my British English friends
     SET_UNDERLINE_COLOR_RGB=SET_UNDERLINE_COLOR_24_BIT # Alias
     SET_UNDERLINE_COLOUR_RGB=SET_UNDERLINE_COLOR_RGB # Alias for my British English friends
+    SET_DOUBLE_UNDERLINE_COLOR_256=([AnsiParam.DOUBLE_UNDERLINE.value, AnsiParam.SET_UNDERLINE_COLOR.value, 5], 1)
+    SET_DOUBLE_UNDERLINE_COLOUR_256=SET_DOUBLE_UNDERLINE_COLOR_256 # Alias for my British English friends
+    SET_DOUBLE_UNDERLINE_COLOR_24_BIT=([AnsiParam.DOUBLE_UNDERLINE.value, AnsiParam.SET_UNDERLINE_COLOR.value, 2], 3)
+    SET_DOUBLE_UNDERLINE_COLOUR_24_BIT=SET_DOUBLE_UNDERLINE_COLOR_24_BIT # Alias for my British English friends
+    SET_DOUBLE_UNDERLINE_COLOR_RGB=SET_DOUBLE_UNDERLINE_COLOR_24_BIT # Alias
+    SET_DOUBLE_UNDERLINE_COLOUR_RGB=SET_DOUBLE_UNDERLINE_COLOR_RGB # Alias for my British English friends
 
     def __init__(self, setup_seq:List[int], num_args:int):
         '''
@@ -94,6 +101,8 @@ class _AnsiControlFn(Enum):
 
         if component == ColorComponentType.UNDERLINE:
             return __class__.SET_UNDERLINE_COLOR_RGB.fn(r, g, b)
+        elif component == ColorComponentType.DOUBLE_UNDERLINE:
+            return __class__.SET_DOUBLE_UNDERLINE_COLOR_RGB.fn(r, g, b)
         elif component == ColorComponentType.BACKGROUND:
             return __class__.BG_SET_RGB.fn(r, g, b)
         else:
@@ -103,6 +112,8 @@ class _AnsiControlFn(Enum):
     def color256(val:int, component:ColorComponentType=ColorComponentType.FOREGROUND) -> List[int]:
         if component == ColorComponentType.UNDERLINE:
             return __class__.SET_UNDERLINE_COLOR_256.fn(val)
+        elif component == ColorComponentType.DOUBLE_UNDERLINE:
+            return __class__.SET_DOUBLE_UNDERLINE_COLOR_256.fn(val)
         elif component == ColorComponentType.BACKGROUND:
             return __class__.BG_SET_256.fn(val)
         else:
@@ -121,6 +132,10 @@ class _AnsiControlFn(Enum):
         return __class__.rgb(r_or_rgb, g, b, ColorComponentType.UNDERLINE)
 
     @staticmethod
+    def dul_rgb(r_or_rgb:int, g:Union[int,None]=None, b:Union[int,None]=None) -> List[int]:
+        return __class__.rgb(r_or_rgb, g, b, ColorComponentType.DOUBLE_UNDERLINE)
+
+    @staticmethod
     def fg_color256(val:int) -> List[int]:
         return __class__.color256(val)
 
@@ -131,6 +146,10 @@ class _AnsiControlFn(Enum):
     @staticmethod
     def ul_color256(val:int) -> List[int]:
         return __class__.color256(val, ColorComponentType.UNDERLINE)
+
+    @staticmethod
+    def dul_color256(val:int) -> List[int]:
+        return __class__.color256(val, ColorComponentType.DOUBLE_UNDERLINE)
 
 class AnsiFormat(Enum):
     '''
@@ -767,6 +786,152 @@ class AnsiFormat(Enum):
     UL_SLATE_GRAY=_AnsiControlFn.ul_rgb(112, 128, 144)
     UL_DARK_SLATE_GRAY=_AnsiControlFn.ul_rgb(47, 79, 79)
 
+    # Enable double underline and set to color
+    DUL_BLACK=_AnsiControlFn.dul_color256(0)
+    DUL_RED=_AnsiControlFn.dul_color256(9)
+    DUL_GREEN=_AnsiControlFn.dul_color256(10)
+    DUL_YELLOW=_AnsiControlFn.dul_color256(11)
+    DUL_BLUE=_AnsiControlFn.dul_color256(12)
+    DUL_MAGENTA=_AnsiControlFn.dul_color256(13)
+    DUL_CYAN=_AnsiControlFn.dul_color256(14)
+    DUL_WHITE=_AnsiControlFn.dul_color256(15)
+    DUL_INDIAN_RED=_AnsiControlFn.dul_rgb(205, 92, 92)
+    DUL_LIGHT_CORAL=_AnsiControlFn.dul_rgb(240, 128, 128)
+    DUL_SALMON=_AnsiControlFn.dul_rgb(250, 128, 114)
+    DUL_DARK_SALMON=_AnsiControlFn.dul_rgb(233, 150, 122)
+    DUL_LIGHT_SALMON=_AnsiControlFn.dul_rgb(255, 160, 122)
+    DUL_CRIMSON=_AnsiControlFn.dul_rgb(220, 20, 60)
+    DUL_FIRE_BRICK=_AnsiControlFn.dul_rgb(178, 34, 34)
+    DUL_DARK_RED=_AnsiControlFn.dul_rgb(139, 0, 0)
+    DUL_PINK=_AnsiControlFn.dul_rgb(255, 192, 203)
+    DUL_LIGHT_PINK=_AnsiControlFn.dul_rgb(255, 182, 193)
+    DUL_HOT_PINK=_AnsiControlFn.dul_rgb(255, 105, 180)
+    DUL_DEEP_PINK=_AnsiControlFn.dul_rgb(255, 20, 147)
+    DUL_MEDIUM_VIOLET_RED=_AnsiControlFn.dul_rgb(199, 21, 133)
+    DUL_PALE_VIOLET_RED=_AnsiControlFn.dul_rgb(219, 112, 147)
+    DUL_ORANGE=_AnsiControlFn.dul_color256(214)
+    DUL_CORAL=_AnsiControlFn.dul_rgb(255, 127, 80)
+    DUL_TOMATO=_AnsiControlFn.dul_rgb(255, 99, 71)
+    DUL_ORANGE_RED=_AnsiControlFn.dul_color256(202)
+    DUL_DARK_ORANGE=_AnsiControlFn.dul_rgb(255, 140, 0)
+    DUL_GOLD=_AnsiControlFn.dul_rgb(255, 215, 0)
+    DUL_LIGHT_YELLOW=_AnsiControlFn.dul_rgb(255, 255, 224)
+    DUL_LEMON_CHIFFON=_AnsiControlFn.dul_rgb(255, 250, 205)
+    DUL_LIGHT_GOLDENROD_YELLOW=_AnsiControlFn.dul_rgb(250, 250, 210)
+    DUL_PAPAYA_WHIP=_AnsiControlFn.dul_rgb(255, 239, 213)
+    DUL_MOCCASIN=_AnsiControlFn.dul_rgb(255, 228, 181)
+    DUL_PEACH_PUFF=_AnsiControlFn.dul_rgb(255, 218, 185)
+    DUL_PALE_GOLDENROD=_AnsiControlFn.dul_rgb(238, 232, 170)
+    DUL_KHAKI=_AnsiControlFn.dul_rgb(240, 230, 140)
+    DUL_DARK_KHAKI=_AnsiControlFn.dul_rgb(189, 183, 107)
+    DUL_PURPLE=_AnsiControlFn.dul_color256(90)
+    DUL_LAVENDER=_AnsiControlFn.dul_rgb(230, 230, 250)
+    DUL_THISTLE=_AnsiControlFn.dul_rgb(216, 191, 216)
+    DUL_PLUM=_AnsiControlFn.dul_rgb(221, 160, 221)
+    DUL_VIOLET=_AnsiControlFn.dul_rgb(238, 130, 238)
+    DUL_ORCHID=_AnsiControlFn.dul_rgb(218, 112, 214)
+    DUL_FUCHSIA=_AnsiControlFn.dul_rgb(255, 0, 255)
+    DUL_MEDIUM_ORCHID=_AnsiControlFn.dul_rgb(186, 85, 211)
+    DUL_MEDIUM_PURPLE=_AnsiControlFn.dul_rgb(147, 112, 219)
+    DUL_REBECCA_PURPLE=_AnsiControlFn.dul_rgb(102, 51, 153)
+    DUL_BLUE_VIOLET=_AnsiControlFn.dul_rgb(138, 43, 226)
+    DUL_DARK_VIOLET=_AnsiControlFn.dul_rgb(148, 0, 211)
+    DUL_DARK_ORCHID=_AnsiControlFn.dul_rgb(153, 50, 204)
+    DUL_DARK_MAGENTA=_AnsiControlFn.dul_rgb(139, 0, 139)
+    DUL_INDIGO=_AnsiControlFn.dul_rgb(75, 0, 130)
+    DUL_SLATE_BLUE=_AnsiControlFn.dul_rgb(106, 90, 205)
+    DUL_DARK_SLATE_BLUE=_AnsiControlFn.dul_rgb(72, 61, 139)
+    DUL_MEDIUM_SLATE_BLUE=_AnsiControlFn.dul_rgb(123, 104, 238)
+    DUL_GREEN_YELLOW=_AnsiControlFn.dul_rgb(173, 255, 47)
+    DUL_CHARTREUSE=_AnsiControlFn.dul_rgb(127, 255, 0)
+    DUL_LAWN_GREEN=_AnsiControlFn.dul_rgb(124, 252, 0)
+    DUL_LIME=_AnsiControlFn.dul_rgb(0, 255, 0)
+    DUL_LIME_GREEN=_AnsiControlFn.dul_rgb(50, 205, 50)
+    DUL_PALE_GREEN=_AnsiControlFn.dul_rgb(152, 251, 152)
+    DUL_LIGHT_GREEN=_AnsiControlFn.dul_rgb(144, 238, 144)
+    DUL_MEDIUM_SPRING_GREEN=_AnsiControlFn.dul_rgb(0, 250, 154)
+    DUL_SPRING_GREEN=_AnsiControlFn.dul_rgb(0, 255, 127)
+    DUL_MEDIUM_SEA_GREEN=_AnsiControlFn.dul_rgb(60, 179, 113)
+    DUL_SEA_GREEN=_AnsiControlFn.dul_rgb(46, 139, 87)
+    DUL_FOREST_GREEN=_AnsiControlFn.dul_rgb(34, 139, 34)
+    DUL_DARK_GREEN=_AnsiControlFn.dul_rgb(0, 100, 0)
+    DUL_YELLOW_GREEN=_AnsiControlFn.dul_rgb(154, 205, 50)
+    DUL_OLIVE_DRAB=_AnsiControlFn.dul_rgb(107, 142, 35)
+    DUL_OLIVE=_AnsiControlFn.dul_rgb(128, 128, 0)
+    DUL_DARK_OLIVE_GREEN=_AnsiControlFn.dul_rgb(85, 107, 47)
+    DUL_MEDIUM_AQUAMARINE=_AnsiControlFn.dul_rgb(102, 205, 170)
+    DUL_DARK_SEA_GREEN=_AnsiControlFn.dul_rgb(143, 188, 139)
+    DUL_LIGHT_SEA_GREEN=_AnsiControlFn.dul_rgb(32, 178, 170)
+    DUL_DARK_CYAN=_AnsiControlFn.dul_rgb(0, 139, 139)
+    DUL_TEAL=_AnsiControlFn.dul_rgb(0, 128, 128)
+    DUL_AQUA=_AnsiControlFn.dul_rgb(0, 255, 255)
+    DUL_LIGHT_CYAN=_AnsiControlFn.dul_rgb(224, 255, 255)
+    DUL_PALE_TURQUOISE=_AnsiControlFn.dul_rgb(175, 238, 238)
+    DUL_AQUAMARINE=_AnsiControlFn.dul_rgb(127, 255, 212)
+    DUL_TURQUOISE=_AnsiControlFn.dul_rgb(64, 224, 208)
+    DUL_MEDIUM_TURQUOISE=_AnsiControlFn.dul_rgb(72, 209, 204)
+    DUL_DARK_TURQUOISE=_AnsiControlFn.dul_rgb(0, 206, 209)
+    DUL_CADET_BLUE=_AnsiControlFn.dul_rgb(95, 158, 160)
+    DUL_STEEL_BLUE=_AnsiControlFn.dul_rgb(70, 130, 180)
+    DUL_LIGHT_STEEL_BLUE=_AnsiControlFn.dul_rgb(176, 196, 222)
+    DUL_POWDER_BLUE=_AnsiControlFn.dul_rgb(176, 224, 230)
+    DUL_LIGHT_BLUE=_AnsiControlFn.dul_rgb(173, 216, 230)
+    DUL_SKY_BLUE=_AnsiControlFn.dul_rgb(135, 206, 235)
+    DUL_LIGHT_SKY_BLUE=_AnsiControlFn.dul_rgb(135, 206, 250)
+    DUL_DEEP_SKY_BLUE=_AnsiControlFn.dul_rgb(0, 191, 255)
+    DUL_DODGER_BLUE=_AnsiControlFn.dul_rgb(30, 144, 255)
+    DUL_CORNFLOWER_BLUE=_AnsiControlFn.dul_rgb(100, 149, 237)
+    DUL_ROYAL_BLUE=_AnsiControlFn.dul_rgb(65, 105, 225)
+    DUL_MEDIUM_BLUE=_AnsiControlFn.dul_rgb(0, 0, 205)
+    DUL_DARK_BLUE=_AnsiControlFn.dul_rgb(0, 0, 139)
+    DUL_NAVY=_AnsiControlFn.dul_rgb(0, 0, 128)
+    DUL_MIDNIGHT_BLUE=_AnsiControlFn.dul_rgb(25, 25, 112)
+    DUL_CORNSILK=_AnsiControlFn.dul_rgb(255, 248, 220)
+    DUL_BLANCHED_ALMOND=_AnsiControlFn.dul_rgb(255, 235, 205)
+    DUL_BISQUE=_AnsiControlFn.dul_rgb(255, 228, 196)
+    DUL_NAVAJO_WHITE=_AnsiControlFn.dul_rgb(255, 222, 173)
+    DUL_WHEAT=_AnsiControlFn.dul_rgb(245, 222, 179)
+    DUL_BURLY_WOOD=_AnsiControlFn.dul_rgb(222, 184, 135)
+    DUL_TAN=_AnsiControlFn.dul_rgb(210, 180, 140)
+    DUL_ROSY_BROWN=_AnsiControlFn.dul_rgb(188, 143, 143)
+    DUL_SANDY_BROWN=_AnsiControlFn.dul_rgb(244, 164, 96)
+    DUL_GOLDENROD=_AnsiControlFn.dul_rgb(218, 165, 32)
+    DUL_DARK_GOLDENROD=_AnsiControlFn.dul_rgb(184, 134, 11)
+    DUL_PERU=_AnsiControlFn.dul_rgb(205, 133, 63)
+    DUL_CHOCOLATE=_AnsiControlFn.dul_rgb(210, 105, 30)
+    DUL_SADDLE_BROWN=_AnsiControlFn.dul_rgb(139, 69, 19)
+    DUL_SIENNA=_AnsiControlFn.dul_rgb(160, 82, 45)
+    DUL_BROWN=_AnsiControlFn.dul_rgb(165, 42, 42)
+    DUL_MAROON=_AnsiControlFn.dul_rgb(128, 0, 0)
+    DUL_SNOW=_AnsiControlFn.dul_rgb(255, 250, 250)
+    DUL_HONEY_DEW=_AnsiControlFn.dul_rgb(240, 255, 240)
+    DUL_MINT_CREAM=_AnsiControlFn.dul_rgb(245, 255, 250)
+    DUL_AZURE=_AnsiControlFn.dul_rgb(240, 255, 255)
+    DUL_ALICE_BLUE=_AnsiControlFn.dul_rgb(240, 248, 255)
+    DUL_GHOST_WHITE=_AnsiControlFn.dul_rgb(248, 248, 255)
+    DUL_WHITE_SMOKE=_AnsiControlFn.dul_rgb(245, 245, 245)
+    DUL_SEA_SHELL=_AnsiControlFn.dul_rgb(255, 245, 238)
+    DUL_BEIGE=_AnsiControlFn.dul_rgb(245, 245, 220)
+    DUL_OLD_LACE=_AnsiControlFn.dul_rgb(253, 245, 230)
+    DUL_FLORAL_WHITE=_AnsiControlFn.dul_rgb(255, 250, 240)
+    DUL_IVORY=_AnsiControlFn.dul_rgb(255, 255, 240)
+    DUL_ANTIQUE_WHITE=_AnsiControlFn.dul_rgb(250, 235, 215)
+    DUL_LINEN=_AnsiControlFn.dul_rgb(250, 240, 230)
+    DUL_LAVENDER_BLUSH=_AnsiControlFn.dul_rgb(255, 240, 245)
+    DUL_MISTY_ROSE=_AnsiControlFn.dul_rgb(255, 228, 225)
+    DUL_GAINSBORO=_AnsiControlFn.dul_rgb(220, 220, 220)
+    DUL_LIGHT_GRAY=_AnsiControlFn.dul_rgb(211, 211, 211)
+    DUL_LIGHT_GREY=DUL_LIGHT_GRAY # Alias for my British English friends
+    DUL_SILVER=_AnsiControlFn.dul_rgb(192, 192, 192)
+    DUL_DARK_GRAY=_AnsiControlFn.dul_rgb(169, 169, 169)
+    DUL_DARK_GREY=DUL_DARK_GRAY # Alias for my British English friends
+    DUL_GRAY=_AnsiControlFn.dul_color256(244)
+    DUL_GREY=DUL_GRAY # Alias for my British English friends
+    DUL_DIM_GRAY=_AnsiControlFn.dul_rgb(105, 105, 105)
+    DUL_LIGHT_SLATE_GRAY=_AnsiControlFn.dul_rgb(119, 136, 153)
+    DUL_SLATE_GRAY=_AnsiControlFn.dul_rgb(112, 128, 144)
+    DUL_DARK_SLATE_GRAY=_AnsiControlFn.dul_rgb(47, 79, 79)
+
     def __init__(self, seq:Union[int, List[int]]):
         '''
         Initializes this enum
@@ -823,9 +988,19 @@ class AnsiFormat(Enum):
     @staticmethod
     def ul_rgb(r_or_rgb:int, g:Union[int,None]=None, b:Union[int,None]=None) -> 'AnsiSetting':
         '''
-        Generates a underline ANSI sequence for the given RGB values.
+        Generates an underline ANSI sequence for the given RGB values.
         r_or_rgb: Either an 8-bit red component or the full 24-bit RGB value
         g: An 8-bit green component (b must also be specified when set)
         b: An 8-bit blue component (g must also be specified when set)
         '''
         return AnsiFormat.rgb(r_or_rgb, g, b, ColorComponentType.UNDERLINE)
+
+    @staticmethod
+    def dul_rgb(r_or_rgb:int, g:Union[int,None]=None, b:Union[int,None]=None) -> 'AnsiSetting':
+        '''
+        Generates a double underline ANSI sequence for the given RGB values.
+        r_or_rgb: Either an 8-bit red component or the full 24-bit RGB value
+        g: An 8-bit green component (b must also be specified when set)
+        b: An 8-bit blue component (g must also be specified when set)
+        '''
+        return AnsiFormat.rgb(r_or_rgb, g, b, ColorComponentType.DOUBLE_UNDERLINE)

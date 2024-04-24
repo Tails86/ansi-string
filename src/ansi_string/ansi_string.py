@@ -51,13 +51,14 @@ class AnsiString:
         s: The underlying string
         setting_or_settings: setting(s) in any of the listed formats below
             - An AnsiFormat enum (ex: `AnsiFormat.BOLD`)
-            - The result of calling `AnsiFormat.rgb()`, `AnsiFormat.fg_rgb()`, `AnsiFormat.bg_rgb()`, or
-              `AnsiFormat.ul_rgb()`
+            - The result of calling `AnsiFormat.rgb()`, `AnsiFormat.fg_rgb()`, `AnsiFormat.bg_rgb()`,
+              `AnsiFormat.ul_rgb()`, or `AnsiFormat.dul_rgb()`
             - A string color or formatting name (i.e. any name of the AnsiFormat enum in lower or upper case)
             - An `rgb(...)` function directive as a string (ex: `"rgb(255, 255, 255)"`)
                 - `rgb(...)` or `fg_rgb(...)` to adjust text color
                 - `bg_rgb(...)` to adjust background color
                 - `ul_rgb(...)` to enable underline and set the underline color
+                - `dul_rgb(...)` to enable double underline and set the underline color
                 - Value given may be either a 24-bit integer or 3 x 8-bit integers, separated by commas
                 - Each given value within the parenthesis is treated as hexadecimal if the value starts with "0x",
                   otherwise it is treated as a decimal value
@@ -903,13 +904,14 @@ class _AnsiSettingPoint:
     @staticmethod
     def _parse_rgb_string(s:str) -> AnsiSetting:
         component_dict = {
+            'dul_': ColorComponentType.DOUBLE_UNDERLINE,
             'ul_': ColorComponentType.UNDERLINE,
             'bg_': ColorComponentType.BACKGROUND,
             'fg_': ColorComponentType.FOREGROUND
         }
 
         # rgb(), fg_rgb(), bg_rgb(), or ul_rgb() with 3 distinct values as decimal or hex
-        match = re.search(r'^((?:fg_)?|(?:bg_)|(?:ul_))rgb\([\[\()]?\s*(0x)?([0-9a-fA-F]+)\s*,\s*(0x)?([0-9a-fA-F]+)\s*,\s*(0x)?([0-9a-fA-F]+)\s*[\)\]]?\)$', s)
+        match = re.search(r'^((?:fg_)?|(?:bg_)|(?:ul_)|(?:dul_))rgb\([\[\()]?\s*(0x)?([0-9a-fA-F]+)\s*,\s*(0x)?([0-9a-fA-F]+)\s*,\s*(0x)?([0-9a-fA-F]+)\s*[\)\]]?\)$', s)
         if match:
             try:
                 r = int(match.group(3), 16 if match.group(2) else 10)
@@ -921,7 +923,7 @@ class _AnsiSettingPoint:
             return AnsiFormat.rgb(r, g, b, component_dict.get(match.group(1), ColorComponentType.FOREGROUND))
 
         # rgb(), fg_rgb(), bg_rgb(), or ul_rgb() with 1 value as decimal or hex
-        match = re.search(r'^((?:fg_)?|(?:bg_)|(?:ul_))rgb\([\[\()]?\s*(0x)?([0-9a-fA-F]+)\s*[\)\]]?\)$', s)
+        match = re.search(r'^((?:fg_)?|(?:bg_)|(?:ul_)|(?:dul_))rgb\([\[\()]?\s*(0x)?([0-9a-fA-F]+)\s*[\)\]]?\)$', s)
         if match:
             try:
                 rgb = int(match.group(3), 16 if match.group(2) else 10)
