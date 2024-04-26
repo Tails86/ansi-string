@@ -83,7 +83,7 @@ class CliTests(unittest.TestCase):
         s = AnsiString('This string will be formatted bold and red, right justify')
         self.assertEqual(
             f'{s:>90:01;31}',
-            '\x1b[01;31m                                 This string will be formatted bold and red, right justify\x1b[m'
+            '\x1b[1;31m                                 This string will be formatted bold and red, right justify\x1b[m'
         )
 
     def test_format_left_justify_and_strings(self):
@@ -709,6 +709,49 @@ class CliTests(unittest.TestCase):
     def test_base_str(self):
         s = AnsiString('Hello Hello', 'bold')
         self.assertEqual(s.base_str, 'Hello Hello')
+
+    def test_remove_settings(self):
+        s = AnsiString('Hello Hello', 'bold', AnsiFormat.RED)
+        s.remove_formatting(AnsiFormat.BOLD, 2, 4)
+        self.assertEqual(str(s), '\x1b[1;31mHe\x1b[0;31mll\x1b[31;1mo Hello\x1b[m')
+
+    def test_remove_settings_end(self):
+        s = AnsiString('Hello Hello', 'bold', AnsiFormat.RED)
+        s.remove_formatting(AnsiFormat.BOLD, 2)
+        self.assertEqual(str(s), '\x1b[1;31mHe\x1b[0;31mllo Hello\x1b[m')
+
+    def test_remove_settings_begin(self):
+        s = AnsiString('Hello Hello', 'bold', AnsiFormat.RED)
+        s.remove_formatting(AnsiFormat.BOLD, end=2)
+        self.assertEqual(str(s), '\x1b[31mHe\x1b[31;1mllo Hello\x1b[m')
+
+    def test_remove_settings_all(self):
+        s = AnsiString('Hello Hello', 'bold', AnsiFormat.RED)
+        s.remove_formatting(AnsiFormat.BOLD)
+        self.assertEqual(str(s), '\x1b[31mHello Hello\x1b[m')
+
+    def test_remove_settings_all_overlap(self):
+        s = AnsiString('Hello Hello', AnsiFormat.RED)
+        s.apply_formatting(AnsiFormat.BOLD, 1, 3)
+        s.remove_formatting(AnsiFormat.BOLD)
+        self.assertEqual(str(s), '\x1b[31mHello Hello\x1b[m')
+
+    def test_remove_settings_none(self):
+        s = AnsiString('Hello Hello', AnsiFormat.RED)
+        s.remove_formatting(AnsiFormat.BOLD)
+        self.assertEqual(str(s), '\x1b[31mHello Hello\x1b[m')
+
+    def test_remove_settings_multiple(self):
+        s = AnsiString('Hello Hello', AnsiFormat.RED)
+        s.apply_formatting(AnsiFormat.RED, 1, -1)
+        s.remove_formatting(AnsiFormat.RED, 1, -1)
+        self.assertEqual(str(s), '\x1b[31mH\x1b[mello Hell\x1b[31mo\x1b[m')
+
+    def test_remove_settings_outside_range(self):
+        s = AnsiString('Hello Hello')
+        s.apply_formatting(AnsiFormat.RED, 0, 3)
+        s.remove_formatting(AnsiFormat.RED, start=-1)
+        self.assertEqual(str(s), '\x1b[31mHel\x1b[mlo Hello')
 
 
 

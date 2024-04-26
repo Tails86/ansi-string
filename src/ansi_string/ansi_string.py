@@ -120,16 +120,10 @@ class AnsiString:
                 # new_key could be negative when num is negative - TODO: either handle or raise exception
                 settings_dict[new_key] = settings_dict.pop(key)
 
-    def _insert_settings(
-        self,
-        idx:int,
-        apply:bool,
-        settings:Union[List[str], str, List[int], int, List[AnsiFormat], AnsiFormat, List['AnsiSetting'], 'AnsiSetting'],
-        topmost:bool=True
-    ) -> List['AnsiSetting']:
+    def _insert_settings(self, idx:int, apply:bool, settings:Union[List[AnsiSetting], AnsiSetting], topmost:bool=True):
         if idx not in self._fmts:
             self._fmts[idx] = _AnsiSettingPoint()
-        return self._fmts[idx].insert_settings(apply, settings, topmost)
+        self._fmts[idx].insert_settings(apply, settings, topmost)
 
     def apply_formatting(
             self,
@@ -154,24 +148,74 @@ class AnsiString:
             # Ignore - nothing to apply
             return
 
-        if not isinstance(setting_or_settings, list) and not isinstance(setting_or_settings, tuple):
-            settings = [setting_or_settings]
-        else:
-            settings = list(setting_or_settings)
-
-        # Settings are removed by reference (using "is" instead of "==") because this is easier than generating unique
-        # IDs, so it is necessary to ensure the incoming settings have distinct references. It would be possible to do
-        # so only if the setting is not already in self._fmts[*].add, but it doesn't add much more overhead to just make
-        # a copy for every incoming AnsiSetting.
-        for i in range(len(settings)):
-            if isinstance(settings[i], AnsiSetting):
-                settings[i] = AnsiSetting(str(settings[i]))
+        ansi_settings = _AnsiSettingPoint._scrub_ansi_settings(setting_or_settings, make_unique=True)
 
         # Apply settings
-        inserted_settings = self._insert_settings(start, True, settings, topmost)
+        self._insert_settings(start, True, ansi_settings, topmost)
 
         # Remove settings
-        self._insert_settings(end, False, inserted_settings, topmost)
+        self._insert_settings(end, False, ansi_settings, topmost)
+
+    def remove_formatting(
+            self,
+            setting_or_settings:Union[List[str], str, List[int], int, List[AnsiFormat], AnsiFormat, List['AnsiSetting'], 'AnsiSetting'],
+            start:int=0,
+            end:Union[int,None]=None
+    ):
+        start = self._slice_val_to_idx(start, 0)
+        end = self._slice_val_to_idx(end, len(self._s))
+
+        if not setting_or_settings or start >= len(self._s) or end <= start:
+            # Ignore - nothing to apply
+            return
+
+        if start not in self._fmts:
+            self._fmts[start] = _AnsiSettingPoint()
+
+        if end not in self._fmts:
+            self._fmts[end] = _AnsiSettingPoint()
+
+        ansi_settings = _AnsiSettingPoint._scrub_ansi_settings(setting_or_settings)
+
+        removed_settings = []
+        for idx, settings, current_settings in _AnsiSettingsIterator(self._fmts):
+            if idx < start:
+                continue
+            elif idx > end:
+                break
+
+            if idx == start:
+                for s in current_settings:
+                    if s in ansi_settings:
+                        add_idx = __class__._find_setting_reference(s, settings.add)
+                        if add_idx < 0:
+                            settings.rem.append(s)
+                            removed_settings.append(s)
+                        else:
+                            del settings.add[add_idx]
+                            removed_settings.append(s)
+            else:
+                for i in reversed(range(len(settings.rem))):
+                    s = settings.rem[i]
+                    rem_idx = __class__._find_setting_reference(s, removed_settings)
+                    if rem_idx >= 0:
+                        del removed_settings[rem_idx]
+                        del settings.rem[i]
+
+                if idx == end:
+                    if end != len(self._s):
+                        settings.add += removed_settings
+                else:
+                    for i in reversed(range(len(settings.add))):
+                        for s in ansi_settings:
+                            if settings.add[i] == s:
+                                removed_settings.append(settings.add[i])
+                                del settings.add[i]
+
+        # Clean up now empty entries
+        for idx in list(self._fmts.keys()):
+            if not self._fmts[idx]:
+                del self._fmts[idx]
 
     def apply_formatting_for_match(
             self,
@@ -934,6 +978,12 @@ class _AnsiSettingPoint:
         return None
 
     @staticmethod
+    def _scrub_ansi_format_int(ansi_format:int) -> AnsiSetting:
+        if ansi_format < 0:
+            raise ValueError(f'Invalid value [{ansi_format}]; must be greater than or equal to 0')
+        return AnsiSetting(ansi_format)
+
+    @staticmethod
     def _scrub_ansi_format_string(ansi_format:str) -> List[AnsiSetting]:
         if ansi_format.startswith("["):
             # Use the rest of the string as-is for settings
@@ -956,10 +1006,6 @@ class _AnsiSettingPoint:
                     if not rgb_format:
                         try:
                             int_value = int(format)
-                            # 0 should never be used because it will mess with internal assumptions
-                            # Negative values are invalid
-                            if int_value < 0:
-                                raise ValueError(f'Invalid value [{int_value}]; must be greater than or equal to 0')
                         except ValueError:
                             raise ValueError(
                                 'AnsiString.__format__ failed to parse format ({}); invalid name: {}'
@@ -967,49 +1013,48 @@ class _AnsiSettingPoint:
                             )
                         else:
                             # Value is an integer - use the format verbatim
-                            format_settings.append(AnsiSetting(format))
+                            format_settings.append(__class__._scrub_ansi_format_int(int_value))
                     else:
                         format_settings.append(rgb_format)
             return format_settings
 
-    def insert_setting(self, apply:bool, setting:'AnsiSetting', topmost:bool=True):
-        lst = self.add if apply else self.rem
-        if topmost:
-            lst.append(setting)
-        else:
-            lst.insert(0, setting)
-
-    def insert_settings(
-        self,
-        apply:bool,
+    @staticmethod
+    def _scrub_ansi_settings(
         settings:Union[List[str], str, List[int], int, List[AnsiFormat], AnsiFormat, List['AnsiSetting'], 'AnsiSetting'],
-        topmost:bool=True
-    ) -> List['AnsiSetting']:
+        make_unique=False
+    ) -> List[AnsiSetting]:
         if not isinstance(settings, list) and not isinstance(settings, tuple):
             settings = [settings]
 
-        settings_to_insert = []
+        settings_out = []
         for setting in settings:
             if isinstance(setting, AnsiSetting):
-                settings_to_insert.append(setting)
-            elif isinstance(setting, str) or isinstance(setting, int):
-                settings_to_insert.extend(__class__._scrub_ansi_format_string(str(setting)))
+                if make_unique:
+                    setting = AnsiSetting(setting)
+                settings_out.append(setting)
+            elif isinstance(setting, str):
+                settings_out.extend(__class__._scrub_ansi_format_string(setting))
+            elif isinstance(setting, int):
+                settings_out.append(__class__._scrub_ansi_format_int(setting))
             elif hasattr(setting, "setting"):
-                settings_to_insert.append(setting.setting)
+                settings_out.append(setting.setting)
+        return settings_out
+
+    def insert_settings(self, apply:bool, settings:Union[List[AnsiSetting], AnsiSetting], topmost:bool=True):
+        if not isinstance(settings, list) and not isinstance(settings, tuple):
+            settings = [settings]
 
         lst = self.add if apply else self.rem
         if topmost:
-            lst.extend(settings_to_insert)
+            lst.extend(settings)
         else:
-            lst[:0] = settings_to_insert
-
-        return settings_to_insert
+            lst[:0] = settings
 
 class _AnsiSettingsIterator:
     '''
     Internally-used class which helps iterate over settings
     '''
-    def __init__(self, settings_dict:Dict[int,'_AnsiSettingPoint']):
+    def __init__(self, settings_dict:Dict[int,_AnsiSettingPoint]):
         self.settings_dict:Dict[int,_AnsiSettingPoint] = settings_dict
         self.current_settings:List[AnsiSetting] = []
         self.dict_iter = iter(sorted(self.settings_dict))
@@ -1017,7 +1062,7 @@ class _AnsiSettingsIterator:
     def __iter__(self):
         return self
 
-    def __next__(self) -> Tuple[int,'_AnsiSettingPoint',List['AnsiSetting']]:
+    def __next__(self) -> Tuple[int,_AnsiSettingPoint,List[AnsiSetting]]:
         # Will raise StopIteration when complete
         idx = next(self.dict_iter)
         settings = self.settings_dict[idx]
