@@ -158,14 +158,20 @@ class AnsiString:
 
     def remove_formatting(
             self,
-            setting_or_settings:Union[List[str], str, List[int], int, List[AnsiFormat], AnsiFormat, List['AnsiSetting'], 'AnsiSetting'],
+            setting_or_settings:Union[None, List[str], str, List[int], int, List[AnsiFormat], AnsiFormat, List['AnsiSetting'], 'AnsiSetting']=None,
             start:int=0,
             end:Union[int,None]=None
     ):
+        '''
+        Remove the given settings from the given range
+        Inputs: setting_or_settings - setting or list of settings to apply (remove all if None specified)
+                start - The string start index where setting(s) are to be applied
+                end - The string index where the setting(s) should be removed
+        '''
         start = self._slice_val_to_idx(start, 0)
         end = self._slice_val_to_idx(end, len(self._s))
 
-        if not setting_or_settings or start >= len(self._s) or end <= start:
+        if (setting_or_settings is not None and not setting_or_settings) or start >= len(self._s) or end <= start:
             # Ignore - nothing to apply
             return
 
@@ -175,7 +181,10 @@ class AnsiString:
         if end not in self._fmts:
             self._fmts[end] = _AnsiSettingPoint()
 
-        ansi_settings = _AnsiSettingPoint._scrub_ansi_settings(setting_or_settings)
+        if not setting_or_settings:
+            ansi_settings = None
+        else:
+            ansi_settings = _AnsiSettingPoint._scrub_ansi_settings(setting_or_settings)
 
         removed_settings = []
         for idx, settings, current_settings in _AnsiSettingsIterator(self._fmts):
@@ -186,7 +195,7 @@ class AnsiString:
 
             if idx == start:
                 for s in current_settings:
-                    if s in ansi_settings:
+                    if ansi_settings is None or s in ansi_settings:
                         add_idx = __class__._find_setting_reference(s, settings.add)
                         if add_idx < 0:
                             settings.rem.append(s)
@@ -207,10 +216,9 @@ class AnsiString:
                         settings.add += removed_settings
                 else:
                     for i in reversed(range(len(settings.add))):
-                        for s in ansi_settings:
-                            if settings.add[i] == s:
-                                removed_settings.append(settings.add[i])
-                                del settings.add[i]
+                        if ansi_settings is None or settings.add[i] in ansi_settings:
+                            removed_settings.append(settings.add[i])
+                            del settings.add[i]
 
         # Clean up now empty entries
         for idx in list(self._fmts.keys()):
@@ -246,6 +254,23 @@ class AnsiString:
 
         for match in re.finditer(matchspec, self._s, re.IGNORECASE if not match_case else 0):
             self.apply_formatting_for_match(format, match)
+
+    def unformat_matching(self, matchspec:str, *format, regex:bool=False, match_case=False):
+        '''
+        Remove the given formatting for anything matching the matchspec
+        matchspec: the string to match
+        format: 0 to many format specifiers (remove all if None specified)
+        regex: set to True to treat matchspec as a regex string
+        match_case: set to True to make matching case-sensitive (false by default)
+        '''
+        if not regex:
+            matchspec = re.escape(matchspec)
+
+        if not format or None in format:
+            format = None
+
+        for match in re.finditer(matchspec, self._s, re.IGNORECASE if not match_case else 0):
+            self.remove_formatting(format, match.start(0), match.end(0))
 
     def clear_formatting(self):
         '''

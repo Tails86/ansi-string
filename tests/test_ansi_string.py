@@ -725,12 +725,12 @@ class CliTests(unittest.TestCase):
         s.remove_formatting(AnsiFormat.BOLD, end=2)
         self.assertEqual(str(s), '\x1b[31mHe\x1b[31;1mllo Hello\x1b[m')
 
-    def test_remove_settings_all(self):
+    def test_remove_settings_entire_range(self):
         s = AnsiString('Hello Hello', 'bold', AnsiFormat.RED)
         s.remove_formatting(AnsiFormat.BOLD)
         self.assertEqual(str(s), '\x1b[31mHello Hello\x1b[m')
 
-    def test_remove_settings_all_overlap(self):
+    def test_remove_settings_entire_range_overlap(self):
         s = AnsiString('Hello Hello', AnsiFormat.RED)
         s.apply_formatting(AnsiFormat.BOLD, 1, 3)
         s.remove_formatting(AnsiFormat.BOLD)
@@ -753,8 +753,22 @@ class CliTests(unittest.TestCase):
         s.remove_formatting(AnsiFormat.RED, start=-1)
         self.assertEqual(str(s), '\x1b[31mHel\x1b[mlo Hello')
 
+    def test_remove_settings_all(self):
+        s = AnsiString('Hello Hello', AnsiFormat.RED)
+        s.apply_formatting(AnsiFormat.BOLD, 1, 3)
+        s.apply_formatting(AnsiFormat.BOLD, start=-1)
+        s.apply_formatting(AnsiFormat.RED, 0, 3)
+        s.remove_formatting(start=2)
+        self.assertEqual(str(s), '\x1b[31;31mH\x1b[31;31;1me\x1b[mllo Hello')
 
-
+    def test_unformat_matching(self):
+        s = AnsiString('Here is a string that I will unformat matching', AnsiFormat.CYAN, AnsiFormat.BOLD)
+        s.apply_formatting([AnsiFormat.BG_PINK], 38)
+        s.unformat_matching('ing', 'cyan', AnsiFormat.BG_PINK)
+        self.assertEqual(
+            str(s),
+            '\x1b[36;1mHere is a str\x1b[0;1ming\x1b[1;36m that I will unformat \x1b[1;36;48;2;255;192;203mmatch\x1b[0;1ming\x1b[m'
+        )
 
 
     # Exceptions tests
