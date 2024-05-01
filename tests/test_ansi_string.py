@@ -502,6 +502,14 @@ class CliTests(unittest.TestCase):
             'Here is a str\x1b[36;48;2;255;192;203ming\x1b[m that I will match formatt\x1b[36;48;2;255;192;203ming\x1b[m'
         )
 
+    def test_format_matching_w_count1(self):
+        s = AnsiString('Here is a string that I will match formatting')
+        s.format_matching('InG', 'cyan', AnsiFormat.BG_PINK, count=1)
+        self.assertEqual(
+            str(s),
+            'Here is a str\x1b[36;48;2;255;192;203ming\x1b[m that I will match formatting'
+        )
+
     def test_format_matching_ensure_escape(self):
         s = AnsiString('Here is a (string) that I will match formatting')
         s.format_matching('(string)', 'cyan', AnsiFormat.BG_PINK)
@@ -768,6 +776,15 @@ class CliTests(unittest.TestCase):
         self.assertEqual(
             str(s),
             '\x1b[36;1mHere is a str\x1b[0;1ming\x1b[1;36m that I will unformat \x1b[1;36;48;2;255;192;203mmatch\x1b[0;1ming\x1b[m'
+        )
+
+    def test_unformat_matching_w_count1(self):
+        s = AnsiString('Here is a string that I will unformat matching', AnsiFormat.CYAN, AnsiFormat.BOLD)
+        s.apply_formatting([AnsiFormat.BG_PINK], 38)
+        s.unformat_matching('ing', 'cyan', AnsiFormat.BG_PINK, count=1)
+        self.assertEqual(
+            str(s),
+            '\x1b[36;1mHere is a str\x1b[0;1ming\x1b[1;36m that I will unformat \x1b[1;36;48;2;255;192;203mmatching\x1b[m'
         )
 
 

@@ -47,7 +47,7 @@ import sys
 en_tty_ansi(sys.stderr)
 ```
 
-For Windows, this returns True if the given IO is a TTY (i.e. not piped to a file) and enabling ANSI was successful. For all other operating systems, this will return True if and only if the given IO is a TTY; no other action is taken.
+For Windows, this returns True if the given IO is a TTY (i.e. not piped to a file) and enabling ANSI was successful. For all other operating systems, this will return True if and only if the given IO is a TTY (i.e. isatty()); no other action is taken.
 
 ### Construction
 
@@ -78,6 +78,7 @@ A formatting setting may also be any of the following, but it's not advised to s
 - A single ANSI directive as an integer
 
 Examples:
+
 ```py
 # Set foreground to light_sea_green using string directive
 # Set background to chocolate using AnsiFormat directive
@@ -96,6 +97,7 @@ print(s)
 - The `+=` operator may be used to append an `AnsiString` or `str` to an `AnsiString`
 
 Examples:
+
 ```py
 s = AnsiString.join("This ", AnsiString("string", AnsiFormat.BOLD))
 s += AnsiString(" contains ") + AnsiString("multiple", AnsiFormat.BG_BLUE)
@@ -105,8 +107,12 @@ print(s)
 
 ### Formatting
 
+#### apply_formatting
+
 The method `AnsiString.apply_formatting()` is provided to append formatting to a previously constructed `AnsiString`.
+
 Example:
+
 ```py
 s = AnsiString("This string contains multiple color settings across different ranges")
 s.apply_formatting(AnsiFormat.BOLD, 5, 11)
@@ -115,8 +121,12 @@ s.apply_formatting([AnsiFormat.FG_ORANGE, AnsiFormat.ITALIC], 21, 35)
 print(s)
 ```
 
+#### Format String
+
 A format string may be used to format an AnsiString before printing. The format specification string must be in the format `"[string_format][:ansi_format]"` where `string_format` is the standard string format specifier and `ansi_format` contains 0 or more ANSI directives separated by semicolons (;). The ANSI directives may be any of the same string values that can be passed to the `AnsiString` constructor. If no `string_format` is desired, then it can be set to an empty string.
+
 Examples:
+
 ```py
 ansi_str = AnsiString("This is an ANSI string")
 # Right justify with width of 100, formatted bold and red
@@ -134,15 +144,79 @@ ul_colors = [0xFF, 0x63, 0x47]
 print(f"{ansi_str::rgb({fg_color});bg_rgb({bg_colors});ul_rgb({ul_colors})}")
 ```
 
-The method `AnsiString.format_matching()` is provided to apply formatting to an `AnsiString` based on a match specification.
+#### format_matching and unformat_matching
+
+The method `AnsiString.format_matching()` and `AnsiString.unformat_matching()` are provided to apply or remove formatting of an `AnsiString` based on a match specification.
+
 Example:
+
 ```py
-s = AnsiString("Here is a strING that I will match formatting")
+s = AnsiString("Here is a strING that I will match formatting", AnsiFormat.BOLD)
 # This will make the word "formatting" cyan with a pink background
 s.format_matching("[A-Za-z]+ing", "cyan", AnsiFormat.BG_PINK, regex=True, match_case=True)
+# This will remove BOLD from "strING" and "formatting"
+s.unformat_matching("[A-Za-z]+ing", AnsiFormat.BOLD, regex=True)
 print(s)
 ```
 
-### Other String Manipulation Methods
+#### clear_formatting
+
+Calling the method `AnsiString.clear_formatting()` will clear all formatting applied.
+
+### String Assignment
+
+The method `AnsiString.assign_str()` may be used to assign the internal string and adjust formatting as necessary.
+
+### Base String Retrieval
+
+The attribute `AnsiString.base_str` may be used to retrieve the unformatted base string.
+
+### Format Status
+
+The methods `AnsiString.ansi_settings_at()` and `AnsiString.settings_at()` may be used to retrieve the settings applied over a single character.
+
+### Other String Methods
 
 Many other methods that are found in the `str` class such as `replace()` are available in `AnsiString` which manipulate the string while applying formatting where necessary.
+
+- capitalize
+- casefold
+- center
+- count
+- encode
+- endswith
+- expandtabs
+- find
+- index
+- isalnum
+- isalpha
+- isascii
+- isdecimal
+- isdigit
+- isidentifier
+- islower
+- isnumeric
+- isprintable
+- isspace
+- istitle
+- isupper
+- ljust
+- lower
+- lstrip
+- partition
+- removeprefix
+- removesuffix
+- replace
+- rfind
+- rindex
+- rjust
+- rpartition
+- rsplit
+- rstrip
+- split
+- splitlines
+- strip
+- swapcase
+- title
+- upper
+- zfill
