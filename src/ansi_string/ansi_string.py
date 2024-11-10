@@ -22,17 +22,18 @@
 
 import re
 import math
+import collections
 from typing import Any, Union, List, Dict, Tuple
 from .ansi_param import AnsiParam
 from .ansi_format import AnsiFormat, AnsiSetting, ColorComponentType, ColourComponentType, ansi_sep, ansi_escape_format, ansi_escape_clear
 
-__version__ = '1.0.5'
+__version__ = '1.0.6'
 PACKAGE_NAME = 'ansi-string'
 
 # Constant: all characters considered to be whitespaces
 WHITESPACE_CHARS = ' \t\n\r\v\f'
 
-class AnsiString:
+class AnsiString(collections.UserString):
     '''
     Represents an ANSI colorized/formatted string. All or part of the string may contain style and
     color formatting which may be used to print out to an ANSI-supported terminal such as those
@@ -74,15 +75,17 @@ class AnsiString:
                 - Never specify the reset directive (0) because this is implicitly handled internally
             - A single ANSI directive as an integer
         '''
+        super().__init__(str(s))
+
         # Key is the string index to make a color change at
         self._fmts:Dict[int,'_AnsiSettingPoint'] = {}
 
         if isinstance(s, AnsiString):
-            self._s = s._s
+            self.data = s.data
             for k, v in s._fmts.items():
                 self._fmts[k] = _AnsiSettingPoint(list(v.add), list(v.rem))
         elif isinstance(s, str):
-            self._s = s
+            self.data = s
         else:
             raise TypeError('Invalid type for s')
 
@@ -103,18 +106,18 @@ class AnsiString:
         Parameters:
             s - the new string to set
         '''
-        if len(s) > len(self._s):
-            if len(self._s) in self._fmts:
-                self._fmts[len(s)] = self._fmts.pop(len(self._s))
-        elif len(s) < len(self._s):
+        if len(s) > len(self.data):
+            if len(self.data) in self._fmts:
+                self._fmts[len(s)] = self._fmts.pop(len(self.data))
+        elif len(s) < len(self.data):
             # This may erase some settings that will no longer apply
             self.clip(end=len(s), inplace=True)
-        self._s = s
+        self.data = s
 
     @property
     def base_str(self) -> str:
         ''' Returns the base string without any formatting set. '''
-        return self._s
+        return self.data
 
     def copy(self) -> 'AnsiString':
         ''' Creates a new AnsiString which is a copy of the original '''
@@ -152,9 +155,9 @@ class AnsiString:
                       start_index, meaning it takes precedent over others; the opposite when False
         '''
         start = self._slice_val_to_idx(start, 0)
-        end = self._slice_val_to_idx(end, len(self._s))
+        end = self._slice_val_to_idx(end, len(self.data))
 
-        if not settings or start >= len(self._s) or end <= start:
+        if not settings or start >= len(self.data) or end <= start:
             # Ignore - nothing to apply
             return
 
@@ -184,9 +187,9 @@ class AnsiString:
             end - The string index where the setting(s) should be removed
         '''
         start = self._slice_val_to_idx(start, 0)
-        end = self._slice_val_to_idx(end, len(self._s))
+        end = self._slice_val_to_idx(end, len(self.data))
 
-        if (settings is not None and not settings) or start >= len(self._s) or end <= start:
+        if (settings is not None and not settings) or start >= len(self.data) or end <= start:
             # Ignore - nothing to apply
             return
 
@@ -227,7 +230,7 @@ class AnsiString:
                         del settings_point.rem[i]
 
                 if idx == end:
-                    if end != len(self._s):
+                    if end != len(self.data):
                         settings_point.add += removed_settings
                 else:
                     for i in reversed(range(len(settings_point.add))):
@@ -277,7 +280,7 @@ class AnsiString:
         if not regex:
             matchspec = re.escape(matchspec)
 
-        for match in re.finditer(matchspec, self._s, re.IGNORECASE if not match_case else 0):
+        for match in re.finditer(matchspec, self.data, re.IGNORECASE if not match_case else 0):
             if count < 0 or count > 0:
                 self.apply_formatting_for_match(format, match)
                 if count > 0:
@@ -308,7 +311,7 @@ class AnsiString:
         if not format or None in format:
             format = None
 
-        for match in re.finditer(matchspec, self._s, re.IGNORECASE if not match_case else 0):
+        for match in re.finditer(matchspec, self.data, re.IGNORECASE if not match_case else 0):
             if count < 0 or count > 0:
                 self.remove_formatting(format, match.start(0), match.end(0))
                 if count > 0:
@@ -363,7 +366,7 @@ class AnsiString:
         if val is None:
             return default
         elif val < 0:
-            ret_val = len(self._s) + val
+            ret_val = len(self.data) + val
             if ret_val < 0:
                 ret_val = 0
             return ret_val
@@ -387,13 +390,13 @@ class AnsiString:
             if val.step is not None and val.step != 1:
                 raise ValueError('Step other than 1 not supported')
             st = self._slice_val_to_idx(val.start, 0)
-            en = self._slice_val_to_idx(val.stop, len(self._s))
+            en = self._slice_val_to_idx(val.stop, len(self.data))
         else:
             raise TypeError('Invalid type for __getitem__')
 
-        new_s = AnsiString(self._s[val])
+        new_s = AnsiString(self.data[val])
 
-        if not new_s._s:
+        if not new_s.data:
             # Special case - string is now empty
             return new_s
 
@@ -402,7 +405,7 @@ class AnsiString:
         previous_settings = None
         settings_initialized = False
         for idx, settings, current_settings in _AnsiSettingsIterator(self._fmts):
-            if idx > len(self._s) or idx > en:
+            if idx > len(self.data) or idx > en:
                 # Complete
                 break
             elif idx == en:
@@ -429,7 +432,7 @@ class AnsiString:
 
         # Because this class supports concatenation, it's necessary to remove all settings before ending
         if previous_settings:
-            new_len = len(new_s._s)
+            new_len = len(new_s.data)
             if new_len not in new_s._fmts:
                 new_s._fmts[new_len] = _AnsiSettingPoint()
             settings_to_remove = [s for s in previous_settings if s not in new_s._fmts[new_len].rem]
@@ -493,7 +496,7 @@ class AnsiString:
         '''
         if not __format_spec and not self._fmts:
             # No formatting
-            return self._s
+            return self.data
 
         if __format_spec:
             # Make a copy
@@ -520,7 +523,7 @@ class AnsiString:
                 # Invalid
                 break
             # Catch up output to current index
-            out_str += obj._s[last_idx:idx]
+            out_str += obj.data[last_idx:idx]
             last_idx = idx
 
             settings_to_apply = [str(s) for s in current_settings]
@@ -534,7 +537,7 @@ class AnsiString:
             clear_needed = bool(current_settings)
 
         # Final catch up
-        out_str += obj._s[last_idx:]
+        out_str += obj.data[last_idx:]
         if clear_needed:
             # Clear settings
             out_str += ansi_escape_clear
@@ -557,7 +560,7 @@ class AnsiString:
             obj = self
         else:
             obj = self.copy()
-        obj._s = obj._s.capitalize()
+        obj.data = obj.data.capitalize()
         return obj
 
     def casefold(self, inplace:bool=False) -> 'AnsiString':
@@ -571,7 +574,7 @@ class AnsiString:
             obj = self
         else:
             obj = self.copy()
-        obj._s = obj._s.casefold()
+        obj.data = obj.data.casefold()
         return obj
 
     def center(self, width:int, fillchar:str=' ', inplace:bool=False) -> 'AnsiString':
@@ -591,15 +594,15 @@ class AnsiString:
         else:
             obj = self.copy()
 
-        old_len = len(obj._s)
+        old_len = len(obj.data)
         num = width - old_len
         if num > 0:
             left_spaces = math.floor((num) / 2)
             right_spaces = num - left_spaces
-            obj._s = fillchar * left_spaces + obj._s + fillchar * right_spaces
+            obj.data = fillchar * left_spaces + obj.data + fillchar * right_spaces
             # Move the removal settings from previous end to new end (formats the right fillchars with same as last char)
             if old_len in obj._fmts:
-                obj._fmts[len(obj._s)] = obj._fmts.pop(old_len)
+                obj._fmts[len(obj.data)] = obj._fmts.pop(old_len)
             # Shift all indices except for the origin (formats the left fillchars with same as first char)
             obj._shift_settings_idx(left_spaces, True)
 
@@ -622,13 +625,13 @@ class AnsiString:
         else:
             obj = self.copy()
 
-        old_len = len(obj._s)
+        old_len = len(obj.data)
         num = width - old_len
         if num > 0:
-            obj._s += fillchar * num
+            obj.data += fillchar * num
             # Move the removal settings from previous end to new end (formats the right fillchars with same as last char)
             if old_len in obj._fmts:
-                obj._fmts[len(obj._s)] = obj._fmts.pop(old_len)
+                obj._fmts[len(obj.data)] = obj._fmts.pop(old_len)
 
         return obj
 
@@ -649,10 +652,10 @@ class AnsiString:
         else:
             obj = self.copy()
 
-        old_len = len(obj._s)
+        old_len = len(obj.data)
         num = width - old_len
         if num > 0:
-            obj._s = fillchar * num + obj._s
+            obj.data = fillchar * num + obj.data
             # Shift all indices except for the origin (formats the left fillchars with same as first char)
             obj._shift_settings_idx(num, True)
 
@@ -678,10 +681,10 @@ class AnsiString:
         Returns: self
         '''
         if isinstance(value, str):
-            self._s += value
+            self.data += value
         elif isinstance(value, AnsiString):
-            shift = len(self._s)
-            self._s += value._s
+            shift = len(self.data)
+            self.data += value.data
             find_settings = []
             replace_settings = []
             for key, settings in sorted(value._fmts.items()):
@@ -729,19 +732,19 @@ class AnsiString:
         '''
         if not isinstance(value, AnsiString):
             return False
-        return self._s == value._s and self._fmts == value._fmts
+        return self.data == value.data and self._fmts == value._fmts
 
     def __contains__(self, value:Union[str,'AnsiString',Any]) -> bool:
         ''' Returns True iff the str or the underlying str of an AnsiString is in this AnsiString '''
         if isinstance(value, str):
-            return value in self._s
+            return value in self.data
         elif isinstance(value, AnsiString):
-            return value._s in self._s
+            return value.data in self.data
         return False
 
     def __len__(self) -> int:
         ''' Returns the length of the underlying string '''
-        return len(self._s)
+        return len(self.data)
 
     @staticmethod
     def join(*args:Union[str,'AnsiString']) -> 'AnsiString':
@@ -771,7 +774,7 @@ class AnsiString:
             obj = self
         else:
             obj = self.copy()
-        obj._s = obj._s.lower()
+        obj.data = obj.data.lower()
         return obj
 
     def upper(self, inplace:bool=False) -> 'AnsiString':
@@ -785,7 +788,7 @@ class AnsiString:
             obj = self
         else:
             obj = self.copy()
-        obj._s = obj._s.upper()
+        obj.data = obj.data.upper()
         return obj
 
     def lstrip(self, chars:str=None, inplace:bool=False) -> 'AnsiString':
@@ -809,7 +812,7 @@ class AnsiString:
         '''
         obj = self[start:end]
         if inplace:
-            self._s = obj._s
+            self.data = obj.data
             self._fmts = obj._fmts
             del obj
             return self
@@ -851,16 +854,16 @@ class AnsiString:
 
         lcount = 0
         if do_lstrip:
-            for char in self._s:
+            for char in self.data:
                 if char in chars:
                     lcount += 1
                 else:
                     break
 
         rcount = None
-        if do_rstrip and lcount < len (self._s):
+        if do_rstrip and lcount < len (self.data):
             rcount = 0
-            for char in reversed(self._s):
+            for char in reversed(self.data):
                 if char in chars:
                     rcount -= 1
                 else:
@@ -883,7 +886,7 @@ class AnsiString:
 
         If the separator is not found, returns a 3-tuple containing the original string and two empty strings.
         '''
-        idx = self._s.find(sep)
+        idx = self.data.find(sep)
         if idx >= 0:
             sep_len = len(sep)
             idx_end = idx + sep_len
@@ -900,7 +903,7 @@ class AnsiString:
 
         If the separator is not found, returns a 3-tuple containing the original string and two empty strings.
         '''
-        idx = self._s.rfind(sep)
+        idx = self.data.rfind(sep)
         if idx >= 0:
             sep_len = len(sep)
             idx_end = idx + sep_len
@@ -914,7 +917,7 @@ class AnsiString:
         Parameters:
             idx - the index to get settings of
         '''
-        if idx >= 0 and idx < len(self._s):
+        if idx >= 0 and idx < len(self.data):
             previous_settings = []
             for sidx, _, current_settings in _AnsiSettingsIterator(self._fmts):
                 if sidx > idx:
@@ -943,7 +946,7 @@ class AnsiString:
             inplace - when True, do the conversion in-place and return self;
                       when False, do the conversion on a copy and return the copy
         '''
-        if not self._s.startswith(prefix):
+        if not self.data.startswith(prefix):
             if inplace:
                 return self
             else:
@@ -963,7 +966,7 @@ class AnsiString:
             inplace - when True, do the conversion in-place and return self;
                       when False, do the conversion on a copy and return the copy
         '''
-        if not self._s.endswith(suffix):
+        if not self.data.endswith(suffix):
             if inplace:
                 return self
             else:
@@ -984,7 +987,7 @@ class AnsiString:
                       when False, do the conversion on a copy and return the copy
         '''
         obj = self
-        idx = obj._s.find(old)
+        idx = obj.data.find(old)
         while (count < 0 or count > 0) and idx >= 0:
             if isinstance(new, str):
                 replace = AnsiString(new, obj.ansi_settings_at(idx))
@@ -993,10 +996,10 @@ class AnsiString:
             obj = obj[:idx] + replace + obj[idx+len(old):]
             if count > 0:
                 count -= 1
-            idx = obj._s.find(old, idx + len(new))
+            idx = obj.data.find(old, idx + len(new))
 
         if inplace:
-            self._s = obj._s
+            self.data = obj.data
             self._fmts = obj._fmts
             return self
         else:
@@ -1007,7 +1010,7 @@ class AnsiString:
         Return the number of non-overlapping occurrences of substring sub in
         string S[start:end]. Optional arguments start and end are interpreted as in slice notation.
         '''
-        return self._s.count(sub, start, end)
+        return self.data.count(sub, start, end)
 
     def encode(self, encoding:str="utf-8", errors:str="strict") -> bytes:
         '''
@@ -1027,7 +1030,7 @@ class AnsiString:
         Return True if S ends with the specified suffix, False otherwise. With optional start, test S beginning at that
         position. With optional end, stop comparing S at that position. suffix can also be a tuple of strings to try.
         '''
-        return self._s.endswith(suffix, start, end)
+        return self.data.endswith(suffix, start, end)
 
     def expandtabs(self, tabsize:int=8, inplace:bool=False) -> 'AnsiString':
         '''
@@ -1046,7 +1049,7 @@ class AnsiString:
 
         Return -1 on failure.
         '''
-        return self._s.find(sub, start, end)
+        return self.data.find(sub, start, end)
 
     def index(self, sub:str, start:int=None, end:int=None) -> int:
         '''
@@ -1055,7 +1058,7 @@ class AnsiString:
 
         Raises ValueError when the substring is not found.
         '''
-        return self._s.index(sub, start, end)
+        return self.data.index(sub, start, end)
 
     def isalnum(self) -> bool:
         '''
@@ -1064,7 +1067,7 @@ class AnsiString:
         A string is alpha-numeric if all characters in the string are alpha-numeric and there is at least one character
         in the string
         '''
-        return self._s.isalnum()
+        return self.data.isalnum()
 
     def isalpha(self) -> bool:
         '''
@@ -1073,7 +1076,7 @@ class AnsiString:
         A string is alphabetic if all characters in the string are alphabetic and there is at least one character in the
         string.
         '''
-        return self._s.isalpha()
+        return self.data.isalpha()
 
     def isascii(self) -> bool:
         '''
@@ -1083,7 +1086,7 @@ class AnsiString:
 
         ASCII characters have code points in the range U+0000-U+007F. Empty string is ASCII too.
         '''
-        return self._s.isascii()
+        return self.data.isascii()
 
     def isdecimal(self) -> bool:
         '''
@@ -1092,7 +1095,7 @@ class AnsiString:
         A string is a decimal string if all characters in the string are decimal and there is at least one character in
         the string.
         '''
-        return self._s.isdecimal()
+        return self.data.isdecimal()
 
     def isdigit(self) -> bool:
         '''
@@ -1101,7 +1104,7 @@ class AnsiString:
         A string is a digit string if all characters in the string are digits and there is at least one character in the
         string.
         '''
-        return self._s.isdigit()
+        return self.data.isdigit()
 
     def isidentifier(self) -> bool:
         '''
@@ -1109,7 +1112,7 @@ class AnsiString:
 
         Call keyword.iskeyword(s) to test whether string s is a reserved identifier, such as "def" or "class".
         '''
-        return self._s.isidentifier()
+        return self.data.isidentifier()
 
     def islower(self) -> bool:
         '''
@@ -1118,7 +1121,7 @@ class AnsiString:
         A string is lowercase if all cased characters in the string are lowercase and there is at least one cased
         character in the string.
         '''
-        return self._s.islower()
+        return self.data.islower()
 
     def isnumeric(self) -> bool:
         '''
@@ -1127,7 +1130,7 @@ class AnsiString:
         A string is numeric if all characters in the string are numeric and there is at least one character in the
         string.
         '''
-        return self._s.isnumeric()
+        return self.data.isnumeric()
 
     def isprintable(self) -> bool:
         '''
@@ -1135,7 +1138,7 @@ class AnsiString:
 
         A string is printable if all of its characters are considered printable in repr() or if it is empty.
         '''
-        return self._s.isprintable()
+        return self.data.isprintable()
 
     def isspace(self) -> bool:
         '''
@@ -1143,7 +1146,7 @@ class AnsiString:
 
         A string is whitespace if all characters in the string are whitespace and there is at least one character in the string.
         '''
-        return self._s.isspace()
+        return self.data.isspace()
 
     def istitle(self) -> bool:
         '''
@@ -1152,7 +1155,7 @@ class AnsiString:
         In a title-cased string, upper- and title-case characters may only follow uncased characters and lowercase
         characters only cased ones.
         '''
-        return self._s.istitle()
+        return self.data.istitle()
 
     def isupper(self) -> bool:
         '''
@@ -1161,7 +1164,7 @@ class AnsiString:
         A string is uppercase if all cased characters in the string are uppercase and there is at least one cased
         character in the string.
         '''
-        return self._s.isupper()
+        return self.data.isupper()
 
     def rfind(self, sub:str, start:int=None, end:int=None) -> int:
         '''
@@ -1173,7 +1176,7 @@ class AnsiString:
 
         Return -1 on failure.
         '''
-        return self._s.rfind(sub, start, end)
+        return self.data.rfind(sub, start, end)
 
     def rindex(self, sub:str, start:int=None, end:int=None) -> int:
         '''
@@ -1185,7 +1188,7 @@ class AnsiString:
 
         Raises ValueError when the substring is not found.
         '''
-        return self._s.rindex(sub, start, end)
+        return self.data.rindex(sub, start, end)
 
     def _split(self, sep:Union[str,None]=None, maxsplit:int=-1, r:bool=False) -> List['AnsiString']:
         '''
@@ -1196,13 +1199,13 @@ class AnsiString:
             r - True to search from right; False to search from left
         '''
         if r:
-            str_splits = self._s.rsplit(sep, maxsplit)
+            str_splits = self.data.rsplit(sep, maxsplit)
         else:
-            str_splits = self._s.split(sep, maxsplit)
+            str_splits = self.data.split(sep, maxsplit)
         split_idx_len = []
         idx = 0
         for s in str_splits:
-            idx = self._s.find(s, idx)
+            idx = self.data.find(s, idx)
             split_idx_len.append((idx, len(s)))
             idx += len(s)
 
@@ -1251,11 +1254,11 @@ class AnsiString:
 
         Line breaks are not included in the resulting list unless keepends is given and true.
         '''
-        str_splits = self._s.splitlines(keepends)
+        str_splits = self.data.splitlines(keepends)
         split_idx_len = []
         idx = 0
         for s in str_splits:
-            idx = self._s.find(s, idx)
+            idx = self.data.find(s, idx)
             split_idx_len.append((idx, len(s)))
             idx += len(s)
 
@@ -1272,7 +1275,7 @@ class AnsiString:
         else:
             obj = self.copy()
 
-        obj._s = obj._s.swapcase()
+        obj.data = obj.data.swapcase()
 
         return obj
 
@@ -1287,7 +1290,7 @@ class AnsiString:
         else:
             obj = self.copy()
 
-        obj._s = obj._s.title()
+        obj.data = obj.data.title()
 
         return obj
 
