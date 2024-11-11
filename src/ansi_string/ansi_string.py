@@ -27,7 +27,7 @@ from typing import Any, Union, List, Dict, Tuple
 from .ansi_param import AnsiParam
 from .ansi_format import AnsiFormat, AnsiSetting, ColorComponentType, ColourComponentType, ansi_sep, ansi_escape_format, ansi_escape_clear
 
-__version__ = '1.0.6'
+__version__ = '1.0.7'
 PACKAGE_NAME = 'ansi-string'
 
 # Constant: all characters considered to be whitespaces
@@ -45,7 +45,7 @@ class AnsiString(collections.UserString):
 
     def __init__(
         self,
-        s:Union[str,'AnsiString']='',
+        s:Union[str,'AnsiString','AnsiStr']='',
         *settings:Union[AnsiFormat, AnsiSetting, str, int, list, tuple]
     ):
         '''
@@ -75,19 +75,24 @@ class AnsiString(collections.UserString):
                 - Never specify the reset directive (0) because this is implicitly handled internally
             - A single ANSI directive as an integer
         '''
-        super().__init__(str(s))
+        incoming_fmts = None
+        if isinstance(s, AnsiString):
+            incoming_fmts = s._fmts
+            super().__init__(s.data)
+        elif isinstance(s, AnsiStr):
+            incoming_fmts = s._ansi_string._fmts
+            super().__init__(s._ansi_string.data)
+        elif isinstance(s, str):
+            super().__init__(s)
+        else:
+            raise TypeError('Invalid type for s')
 
         # Key is the string index to make a color change at
         self._fmts:Dict[int,'_AnsiSettingPoint'] = {}
 
-        if isinstance(s, AnsiString):
-            self.data = s.data
-            for k, v in s._fmts.items():
+        if incoming_fmts is not None:
+            for k, v in incoming_fmts.items():
                 self._fmts[k] = _AnsiSettingPoint(list(v.add), list(v.rem))
-        elif isinstance(s, str):
-            self.data = s
-        else:
-            raise TypeError('Invalid type for s')
 
         # Unpack settings
         ansi_settings = []
@@ -444,6 +449,10 @@ class AnsiString(collections.UserString):
         ''' Returns a string with ANSI-formatting applied '''
         return self.__format__(None)
 
+    def __repr__(self) -> str:
+        ''' Returns repr of a string with ANSI-formatting applied '''
+        return self.__format__(None).__repr__()
+
     def _apply_string_format(self, string_format:str):
         '''
         Applies string formatting, given from the format spec (justification settings)
@@ -661,7 +670,7 @@ class AnsiString(collections.UserString):
 
         return obj
 
-    def __add__(self, value:Union[str,'AnsiString']) -> 'AnsiString':
+    def __add__(self, value:Union[str,'AnsiString','AnsiStr']) -> 'AnsiString':
         '''
         Appends a str or AnsiString to an AnsiString
         Note: an appended str will take on the formatting of the last character in the AnsiString
@@ -673,55 +682,62 @@ class AnsiString(collections.UserString):
         cpy += value
         return cpy
 
-    def __iadd__(self, value:Union[str,'AnsiString']) -> 'AnsiString':
+    def __iadd__(self, value:Union[str,'AnsiString','AnsiStr']) -> 'AnsiString':
         '''
         Appends a string or AnsiString to this AnsiString
         Parameters:
             value - the right-hand-side value as str or AnsiString
         Returns: self
         '''
-        if isinstance(value, str):
-            self.data += value
-        elif isinstance(value, AnsiString):
-            shift = len(self.data)
-            self.data += value.data
-            find_settings = []
-            replace_settings = []
-            for key, settings in sorted(value._fmts.items()):
-                key += shift
-                if key in self._fmts:
-                    if (
-                        key == shift
-                        and settings.add
-                        and self._fmts[key].rem[:len(settings.add)] == settings.add
-                    ):
-                        # Special case - the string being added contains same formatting as end of my string.
-                        # Because the settings work based on references instead of values, the settings not only
-                        # need to be removed here but changed where they are removed in the added string.
-                        find_settings = settings.add
-                        replace_settings = self._fmts[key].rem[:len(settings.add)]
-                        self._fmts[key].rem = self._fmts[key].rem[len(settings.add):]
-                        settings.add = []
-                        if not self._fmts[key] and not settings:
-                            del self._fmts[key]
-                            continue
-
-                    self._fmts[key].add.extend(settings.add)
-                    self._fmts[key].rem.extend(settings.rem)
-
-                else:
-                    self._fmts[key] = _AnsiSettingPoint(list(settings.add), list(settings.rem))
-
-                    finds = __class__._find_settings_references(find_settings, settings.rem)
-                    if finds:
-                        for find_idx, add_idx in reversed(finds):
-                            self._fmts[key].rem[add_idx] = replace_settings[find_idx]
-                            # Note: find_idx will always be sorted in ascending order and this is iterating in reverse
-                            del find_settings[find_idx]
-                            del replace_settings[find_idx]
-
+        if isinstance(value, AnsiString):
+            incoming_str = value.data
+            incoming_fmts = value._fmts
+        elif isinstance(value, AnsiStr):
+            incoming_str = value._ansi_string.data
+            incoming_fmts = value._ansi_string._fmts
+        elif isinstance(value, str):
+            incoming_str = value
+            incoming_fmts = {}
         else:
             raise TypeError(f'value is invalid type: {type(value)}')
+
+        shift = len(self.data)
+        self.data += incoming_str
+        find_settings = []
+        replace_settings = []
+        for key, settings in sorted(incoming_fmts.items()):
+            key += shift
+            if key in self._fmts:
+                if (
+                    key == shift
+                    and settings.add
+                    and self._fmts[key].rem[:len(settings.add)] == settings.add
+                ):
+                    # Special case - the string being added contains same formatting as end of my string.
+                    # Because the settings work based on references instead of values, the settings not only
+                    # need to be removed here but changed where they are removed in the added string.
+                    find_settings = settings.add
+                    replace_settings = self._fmts[key].rem[:len(settings.add)]
+                    self._fmts[key].rem = self._fmts[key].rem[len(settings.add):]
+                    settings.add = []
+                    if not self._fmts[key] and not settings:
+                        del self._fmts[key]
+                        continue
+
+                self._fmts[key].add.extend(settings.add)
+                self._fmts[key].rem.extend(settings.rem)
+
+            else:
+                self._fmts[key] = _AnsiSettingPoint(list(settings.add), list(settings.rem))
+
+                finds = __class__._find_settings_references(find_settings, settings.rem)
+                if finds:
+                    for find_idx, add_idx in reversed(finds):
+                        self._fmts[key].rem[add_idx] = replace_settings[find_idx]
+                        # Note: find_idx will always be sorted in ascending order and this is iterating in reverse
+                        del find_settings[find_idx]
+                        del replace_settings[find_idx]
+
         return self
 
     def __eq__(self, value:'AnsiString') -> bool:
@@ -734,12 +750,14 @@ class AnsiString(collections.UserString):
             return False
         return self.data == value.data and self._fmts == value._fmts
 
-    def __contains__(self, value:Union[str,'AnsiString',Any]) -> bool:
+    def __contains__(self, value:Union[str,'AnsiString','AnsiStr',Any]) -> bool:
         ''' Returns True iff the str or the underlying str of an AnsiString is in this AnsiString '''
-        if isinstance(value, str):
-            return value in self.data
-        elif isinstance(value, AnsiString):
+        if isinstance(value, AnsiString):
             return value.data in self.data
+        elif isinstance(value, AnsiStr):
+            return value._ansi_string.data in self.data
+        elif isinstance(value, str):
+            return value in self.data
         return False
 
     def __len__(self) -> int:
@@ -747,16 +765,18 @@ class AnsiString(collections.UserString):
         return len(self.data)
 
     @staticmethod
-    def join(*args:Union[str,'AnsiString']) -> 'AnsiString':
+    def join(*args:Union[str,'AnsiString','AnsiStr']) -> 'AnsiString':
         ''' Joins strings and AnsiStrings into a single AnsiString object '''
         if not args:
             return AnsiString()
         args = list(args)
         first_arg = args[0]
-        if isinstance(first_arg, str):
-            joint = AnsiString(first_arg)
-        elif isinstance(first_arg, AnsiString):
+        if isinstance(first_arg, AnsiString):
             joint = first_arg.copy()
+        elif isinstance(first_arg, AnsiStr):
+            joint = first_arg._ansi_string.copy()
+        elif isinstance(first_arg, str):
+            joint = AnsiString(first_arg)
         else:
             raise TypeError(f'value is invalid type: {type(first_arg)}')
         for arg in args[1:]:
@@ -1472,6 +1492,656 @@ class _AnsiCharIterator:
         return self
 
     def __next__(self) -> 'AnsiString':
+        self.current_idx += 1
+        if self.current_idx >= len(self.s):
+            raise StopIteration
+        return self.s[self.current_idx]
+
+class AnsiStr(str):
+    '''
+    Immutable version of AnsiString. The advantage of this object is that isinstance(AnsiStr(), str) returns True.
+    This is currently experimental and not completely tested.
+    '''
+    def __new__(
+        cls,
+        s:Union[str,'AnsiString','AnsiStr']='',
+        *settings:Union[AnsiFormat, AnsiSetting, str, int, list, tuple]
+    ):
+        if isinstance(s, AnsiString):
+            if settings:
+                ansi_string = AnsiString(s, *settings)
+            else:
+                ansi_string = s
+        elif isinstance(s, AnsiStr):
+            if settings:
+                ansi_string = AnsiString(s._ansi_string, *settings)
+            else:
+                ansi_string = s._ansi_string
+        elif isinstance(s, str):
+            ansi_string = AnsiString(s, *settings)
+        else:
+            raise TypeError('Invalid type for s')
+        instance = super().__new__(cls, str(ansi_string))
+        instance._ansi_string = ansi_string
+        return instance
+
+    @property
+    def base_str(self) -> str:
+        ''' Returns the base string without any formatting set. '''
+        return self._ansi_string.base_str
+
+    def __len__(self) -> int:
+        ''' Returns the length of the underlying string '''
+        return self._ansi_string.__len__()
+
+    def __add__(self, value:Union[str,'AnsiString','AnsiStr']) -> 'AnsiStr':
+        '''
+        Appends a str or AnsiString to an AnsiStr
+        Note: an appended str will take on the formatting of the last character in the AnsiString
+        Parameters:
+            value - the right-hand-side value as str or AnsiString
+        Returns: a new AnsiStr
+        '''
+        cpy = self._ansi_string.copy()
+        if isinstance(value, AnsiStr):
+            cpy += value._ansi_string
+        else:
+            cpy += value
+        return AnsiStr(cpy)
+
+    def __iadd__(self, value:Union[str,'AnsiString','AnsiStr']) -> 'AnsiStr':
+        '''
+        Appends a string or AnsiString to this AnsiString
+        Parameters:
+            value - the right-hand-side value as str or AnsiString
+        Returns: a new AnsiStr
+        '''
+        # Can't add in place - always return a new instance
+        return (self + value)
+
+    def __format__(self, __format_spec:str) -> str:
+        '''
+        Returns an ANSI format string with both internal and given formatting spec set.
+        Parameters:
+            __format_spec - must be in the format "[string_format][:ansi_format]" where string_format is the standard
+                            string format specifier and ansi_format contains 0 or more ansi directives separated by
+                            semicolons (;)
+                            ex: ">10:bold;red" to make output right justify with width of 10, bold and red formatting
+        '''
+        return self._ansi_string.__format__(__format_spec)
+
+    def __getitem__(self, val:Union[int, slice]) -> 'AnsiStr':
+        '''
+        Returns a new AnsiStr object which represents a substring of self.
+        Parameters:
+            val - an index or slice to retrieve (step value must be None or 1 when slice is given)
+        Returns: a new AnsiStr which represents the given range in val
+
+        Note: the new copy may contain some references to AnsiSettings in the origin. This is ok since AnsiSettings
+              are not internally modified after creation.
+        '''
+        return AnsiStr(self._ansi_string.__getitem__(val))
+
+    def apply_formatting(
+            self,
+            settings:Union[AnsiFormat, AnsiSetting, str, int, list, tuple],
+            start:int=0,
+            end:Union[int,None]=None,
+            topmost:bool=True
+    ) -> 'AnsiStr':
+        '''
+        Apply formatting using a match object generated from re into a new AnsiStr
+        Parameters:
+            settings - setting or list of settings to apply to matching strings
+            match_object - the match object to use (result of re.search() or re.finditer())
+            group - match the group to set
+        Returns: a new AnsiStr
+        '''
+        cpy = self._ansi_string.copy()
+        cpy.apply_formatting(settings, start, end, topmost)
+        return AnsiStr(cpy)
+
+    def remove_formatting(
+            self,
+            settings:Union[None, AnsiFormat, AnsiSetting, str, int, list, tuple]=None,
+            start:int=0,
+            end:Union[int,None]=None
+    ) -> 'AnsiStr':
+        '''
+        Remove the given formatting settings from the given range into a new AnsiStr
+        Parameters:
+            settings - setting or list of settings to apply (remove all if None specified)
+            start - The string start index where setting(s) are to be applied
+            end - The string index where the setting(s) should be removed
+        Returns: a new AnsiStr
+        '''
+        cpy = self._ansi_string.copy()
+        cpy.remove_formatting(settings, start, end)
+        return AnsiStr(cpy)
+
+    def apply_formatting_for_match(
+            self,
+            settings:Union[AnsiFormat, AnsiSetting, str, int, list, tuple],
+            match_object,
+            group:int=0
+    ) -> 'AnsiStr':
+        '''
+        Apply formatting using a match object generated from re into a new AnsiStr
+        Parameters:
+            settings - setting or list of settings to apply to matching strings
+            match_object - the match object to use (result of re.search() or re.finditer())
+            group - match the group to set
+        Returns: a new AnsiStr
+        '''
+        cpy = self._ansi_string.copy()
+        cpy.apply_formatting_for_match(settings, match_object, group)
+        return AnsiStr(cpy)
+
+    def format_matching(
+        self,
+        matchspec:str,
+        *format:Union[AnsiFormat, AnsiSetting, str, int, list, tuple],
+        regex:bool=False,
+        match_case=False,
+        count=-1
+    ) -> 'AnsiStr':
+        '''
+        Apply formatting for anything matching the matchspec into a new AnsiStr
+        Parameters:
+            matchspec - the string to match
+            format - 0 to many format specifiers
+            regex - set to True to treat matchspec as a regex string
+            match_case - set to True to make matching case-sensitive (false by default)
+            count - the number of matches to format or -1 to match all
+        Returns: a new AnsiStr
+        '''
+        cpy = self._ansi_string.copy()
+        cpy.format_matching(matchspec, *format, regex=regex, match_case=match_case, count=count)
+        return AnsiStr(cpy)
+
+    def unformat_matching(
+        self,
+        matchspec:str,
+        *format:Union[None, AnsiFormat, AnsiSetting, str, int, list, tuple],
+        regex:bool=False,
+        match_case=False,
+        count=-1
+    ) -> 'AnsiStr':
+        '''
+        Remove the given formatting for anything matching the matchspec into a new AnsiStr
+        Parameters:
+            matchspec - the string to match
+            format - 0 to many format specifiers (remove all if None specified)
+            regex - set to True to treat matchspec as a regex string
+            match_case - set to True to make matching case-sensitive (false by default)
+            count - the number of matches to unformat or -1 to match all
+        Returns: a new AnsiStr
+        '''
+        cpy = self._ansi_string.copy()
+        cpy.unformat_matching(matchspec, *format, regex=regex, match_case=match_case, count=count)
+        return AnsiStr(cpy)
+
+    def __iter__(self) -> 'AnsiStr':
+        ''' Iterates over each character of this AnsiStr '''
+        return iter(_AnsiStrCharIterator(self))
+
+    def center(self, width:int, fillchar:str=' ') -> 'AnsiStr':
+        '''
+        Center justification.
+        Parameters:
+            width - the number of characters to center over
+            fillchar - the character used to fill empty spaces
+        Returns: a new AnsiStr
+        '''
+        cpy = self._ansi_string.copy()
+        cpy.center(width, fillchar, inplace=True)
+        return AnsiStr(cpy)
+
+    def ljust(self, width:int, fillchar:str=' ') -> 'AnsiStr':
+        '''
+        Left justification.
+        Parameters:
+            width - the number of characters to left justify over
+            fillchar - the character used to fill empty spaces
+        Returns: a new AnsiStr
+        '''
+        cpy = self._ansi_string.copy()
+        cpy.ljust(width, fillchar, inplace=True)
+        return AnsiStr(cpy)
+
+    def rjust(self, width:int, fillchar:str=' ', inplace:bool=False) -> 'AnsiStr':
+        '''
+        Right justification.
+        Parameters:
+            width - the number of characters to right justify over
+            fillchar - the character used to fill empty spaces
+        Returns: a new AnsiStr
+        '''
+        cpy = self._ansi_string.copy()
+        cpy.rjust(width, fillchar, inplace=True)
+        return AnsiStr(cpy)
+
+    def __eq__(self, value:'AnsiStr') -> bool:
+        '''
+        == operator - returns True if exactly equal
+        Note: this may return False even if the two strings look the same. To be exactly equal means the format settings
+              are the same, arranged in the same order, and any duplicate entries match between the two.
+        '''
+        if not isinstance(value, AnsiStr):
+            return False
+        return str(self) == str(value)
+
+    def __contains__(self, value:Union[str,'AnsiString','AnsiStr',Any]) -> bool:
+        ''' Returns True iff the str or the underlying str of an AnsiString is in this AnsiString '''
+        return self._ansi_string.__contains__(value)
+
+    @staticmethod
+    def join(*args:Union[str,'AnsiString','AnsiStr']) -> 'AnsiStr':
+        ''' Joins strings and AnsiStrings into a single AnsiStr object '''
+        return AnsiStr(AnsiString.join(*args))
+
+    def lower(self) -> 'AnsiStr':
+        '''
+        Convert to lowercase into a new AnsiStr.
+        '''
+        cpy = self._ansi_string.copy()
+        cpy.lower(inplace=True)
+        return AnsiStr(cpy)
+
+    def upper(self) -> 'AnsiStr':
+        '''
+        Convert to uppercase into a new AnsiStr.
+        '''
+        cpy = self._ansi_string.copy()
+        cpy.upper(inplace=True)
+        return AnsiStr(cpy)
+
+    def lstrip(self, chars:str=None) -> 'AnsiStr':
+        '''
+        Remove leading whitespace into a new AnsiStr
+        Parameters:
+            chars - If not None, remove characters in chars instead
+        '''
+        cpy = self._ansi_string.copy()
+        cpy.lstrip(chars, inplace=True)
+        return AnsiStr(cpy)
+
+    def clip(self, start:int=None, end:int=None) -> 'AnsiStr':
+        '''
+        Calls [] operator into a new AnsiStr
+        Parameters:
+            start - start index
+            end - end index
+        '''
+        cpy = self._ansi_string.copy()
+        cpy.clip(start, end, inplace=True)
+        return AnsiStr(cpy)
+
+    def rstrip(self, chars:str=None) -> 'AnsiStr':
+        '''
+        Remove trailing whitespace
+        Parameters:
+            chars - If not None, remove characters in chars instead
+            inplace - when True, do the conversion in-place and return self;
+                      when False, do the conversion on a copy and return the copy
+        '''
+        cpy = self._ansi_string.copy()
+        cpy.rstrip(chars, inplace=True)
+        return AnsiStr(cpy)
+
+    def strip(self, chars:str=None) -> 'AnsiStr':
+        '''
+        Remove leading and trailing whitespace
+        Parameters:
+            chars - If not None, remove characters in chars instead
+        '''
+        cpy = self._ansi_string.copy()
+        cpy.strip(chars, inplace=True)
+        return AnsiStr(cpy)
+
+    def partition(self, sep:str) -> Tuple['AnsiStr','AnsiStr','AnsiStr']:
+        '''
+        Partition the string into three parts using the given separator.
+
+        This will search for the separator in the string. If the separator is found, returns a 3-tuple containing the
+        part before the separator, the separator itself, and the part after it.
+
+        If the separator is not found, returns a 3-tuple containing the original string and two empty strings.
+        '''
+        return [AnsiStr(x) for x in self._ansi_string.partition(sep)]
+
+    def rpartition(self, sep:str) -> Tuple['AnsiStr','AnsiStr','AnsiStr']:
+        '''
+        Partition the string into three parts using the given separator, searching from right to left.
+
+        This will search for the separator in the string. If the separator is found, returns a 3-tuple containing the
+        part before the separator, the separator itself, and the part after it.
+
+        If the separator is not found, returns a 3-tuple containing the original string and two empty strings.
+        '''
+        return [AnsiStr(x) for x in self._ansi_string.rpartition(sep)]
+
+    def ansi_settings_at(self, idx:int) -> List[AnsiSetting]:
+        '''
+        Returns a list of AnsiSettings at the given index
+        Parameters:
+            idx - the index to get settings of
+        '''
+        return self._ansi_string.ansi_settings_at(idx)
+
+    def settings_at(self, idx:int) -> str:
+        '''
+        Returns a string which represents the settings being used at the given index
+        Parameters:
+            idx - the index to get settings of
+        '''
+        return self._ansi_string.settings_at(idx)
+
+    def removeprefix(self, prefix:str) -> 'AnsiStr':
+        '''
+        Return a str with the given prefix string removed if present.
+
+        If the string starts with the prefix string, return string[len(prefix):]. Otherwise, return the original string.
+
+        Parameters:
+            prefix - the prefix to remove
+        '''
+        cpy = self._ansi_string.copy()
+        cpy.removeprefix(prefix, inplace=True)
+        return AnsiStr(cpy)
+
+    def removesuffix(self, suffix:str) -> 'AnsiString':
+        '''
+        Return a str with the given suffix string removed if present.
+
+        If the string ends with the suffix string and that suffix is not empty, return string[:-len(suffix)]. Otherwise,
+        return the original string.
+
+        Parameters:
+            suffix - the suffix to remove
+        '''
+        cpy = self._ansi_string.copy()
+        cpy.removesuffix(suffix, inplace=True)
+        return AnsiStr(cpy)
+
+    def replace(self, old:str, new:Union[str,'AnsiString'], count:int=-1) -> 'AnsiString':
+        '''
+        Does a find-and-replace - if new is a str, the string the is applied will take on the format settings of the
+        first character of the old string in each replaced item.
+        Parameters:
+            old - the string to search for
+            new - the string to replace; if this is a str type, the formatting of the replacement will match the
+                  formatting of the first character of the old string
+            count - the number of occurrences to replace or -1 to replace all occurrences
+        '''
+        cpy = self._ansi_string.copy()
+        cpy.replace(old, new, count, inplace=True)
+        return AnsiStr(cpy)
+
+    def count(self, sub:str, start:int=None, end:int=None) -> int:
+        '''
+        Return the number of non-overlapping occurrences of substring sub in
+        string S[start:end]. Optional arguments start and end are interpreted as in slice notation.
+        '''
+        return self._ansi_string.count(sub, start, end)
+
+    def encode(self, encoding:str="utf-8", errors:str="strict") -> bytes:
+        '''
+        Encode the string using the codec registered for encoding.
+
+        encoding
+        The encoding in which to encode the string.
+        errors
+        The error handling scheme to use for encoding errors. The default is 'strict' meaning that encoding errors raise
+        a UnicodeEncodeError. Other possible values are 'ignore', 'replace' and 'xmlcharrefreplace' as well as any other
+        name registered with codecs.register_error that can handle UnicodeEncodeErrors.
+        '''
+        return self._ansi_string.encode(encoding, errors)
+
+    def endswith(self, suffix:str, start:int=None, end:int=None) -> bool:
+        '''
+        Return True if S ends with the specified suffix, False otherwise. With optional start, test S beginning at that
+        position. With optional end, stop comparing S at that position. suffix can also be a tuple of strings to try.
+        '''
+        return self._ansi_string.endswith(suffix, start, end)
+
+    def expandtabs(self, tabsize:int=8, inplace:bool=False) -> 'AnsiStr':
+        '''
+        Replaces all tab characters with the given number of spaces
+        Parameters:
+            tabsize - number of spaces to replace each tab with
+            inplace - when True, do the conversion in-place and return self;
+                      when False, do the conversion on a copy and return the copy
+        '''
+        return self.replace('\t', ' ' * tabsize, inplace=inplace)
+
+    def find(self, sub:str, start:int=None, end:int=None) -> int:
+        '''
+        Return the lowest index in S where substring sub is found, such that sub is contained within S[start:end].
+        Optional arguments start and end are interpreted as in slice notation.
+
+        Return -1 on failure.
+        '''
+        return self._ansi_string.find(sub, start, end)
+
+    def index(self, sub:str, start:int=None, end:int=None) -> int:
+        '''
+        Return the lowest index in S where substring sub is found, such that sub is contained within S[start:end].
+        Optional arguments start and end are interpreted as in slice notation.
+
+        Raises ValueError when the substring is not found.
+        '''
+        return self._ansi_string.index(sub, start, end)
+
+    def isalnum(self) -> bool:
+        '''
+        Return True if the string is an alpha-numeric string, False otherwise.
+
+        A string is alpha-numeric if all characters in the string are alpha-numeric and there is at least one character
+        in the string
+        '''
+        return self._ansi_string.isalnum()
+
+    def isalpha(self) -> bool:
+        '''
+        Return True if the string is an alphabetic string, False otherwise.
+
+        A string is alphabetic if all characters in the string are alphabetic and there is at least one character in the
+        string.
+        '''
+        return self._ansi_string.isalpha()
+
+    def isascii(self) -> bool:
+        '''
+        This is only available for Python >=3.7; exception will be raised in Python 3.6
+
+        Return True if all characters in the string are ASCII, False otherwise.
+
+        ASCII characters have code points in the range U+0000-U+007F. Empty string is ASCII too.
+        '''
+        return self._ansi_string.isascii()
+
+    def isdecimal(self) -> bool:
+        '''
+        Return True if the string is a decimal string, False otherwise.
+
+        A string is a decimal string if all characters in the string are decimal and there is at least one character in
+        the string.
+        '''
+        return self._ansi_string.isdecimal()
+
+    def isdigit(self) -> bool:
+        '''
+        Return True if the string is a digit string, False otherwise.
+
+        A string is a digit string if all characters in the string are digits and there is at least one character in the
+        string.
+        '''
+        return self._ansi_string.isdigit()
+
+    def isidentifier(self) -> bool:
+        '''
+        Return True if the string is a valid Python identifier, False otherwise.
+
+        Call keyword.iskeyword(s) to test whether string s is a reserved identifier, such as "def" or "class".
+        '''
+        return self._ansi_string.isidentifier()
+
+    def islower(self) -> bool:
+        '''
+        Return True if the string is a lowercase string, False otherwise.
+
+        A string is lowercase if all cased characters in the string are lowercase and there is at least one cased
+        character in the string.
+        '''
+        return self._ansi_string.islower()
+
+    def isnumeric(self) -> bool:
+        '''
+        Return True if the string is a numeric string, False otherwise.
+
+        A string is numeric if all characters in the string are numeric and there is at least one character in the
+        string.
+        '''
+        return self._ansi_string.isnumeric()
+
+    def isprintable(self) -> bool:
+        '''
+        Return True if the string is printable, False otherwise.
+
+        A string is printable if all of its characters are considered printable in repr() or if it is empty.
+        '''
+        return self._ansi_string.isprintable()
+
+    def isspace(self) -> bool:
+        '''
+        Return True if the string is a whitespace string, False otherwise.
+
+        A string is whitespace if all characters in the string are whitespace and there is at least one character in the string.
+        '''
+        return self._ansi_string.isspace()
+
+    def istitle(self) -> bool:
+        '''
+        Return True if the string is a title-cased string, False otherwise.
+
+        In a title-cased string, upper- and title-case characters may only follow uncased characters and lowercase
+        characters only cased ones.
+        '''
+        return self._ansi_string.istitle()
+
+    def isupper(self) -> bool:
+        '''
+        Return True if the string is an uppercase string, False otherwise.
+
+        A string is uppercase if all cased characters in the string are uppercase and there is at least one cased
+        character in the string.
+        '''
+        return self._ansi_string.isupper()
+
+    def rfind(self, sub:str, start:int=None, end:int=None) -> int:
+        '''
+        S.rfind(sub[, start[, end]]) -> int
+
+        Return the highest index in S where substring sub is found,
+        such that sub is contained within S[start:end]. Optional arguments start and end are interpreted as in slice
+        notation.
+
+        Return -1 on failure.
+        '''
+        return self._ansi_string.rfind(sub, start, end)
+
+    def rindex(self, sub:str, start:int=None, end:int=None) -> int:
+        '''
+        S.rindex(sub[, start[, end]]) -> int
+
+        Return the highest index in S where substring sub is found,
+        such that sub is contained within S[start:end]. Optional arguments start and end are interpreted as in slice
+        notation.
+
+        Raises ValueError when the substring is not found.
+        '''
+        return self._ansi_string.rindex(sub, start, end)
+
+    def split(self, sep:Union[str,None]=None, maxsplit:int=-1) -> List['AnsiStr']:
+        '''
+        Return a list of the substrings in the string, using sep as the separator string.
+
+        sep
+            The separator used to split the string.
+
+            When set to None (the default value), will split on any whitespace character (including \n \r \t \f and
+            spaces) and will discard empty strings from the result.
+        maxsplit
+            Maximum number of splits (starting from the left). -1 (the default value) means no limit.
+
+        Note, str.split() is mainly useful for data that has been intentionally delimited. With natural text that
+        includes punctuation, consider using the regular expression module.
+        '''
+        return [AnsiStr(x) for x in self._ansi_string.split(sep, maxsplit)]
+
+    def rsplit(self, sep:Union[str,None]=None, maxsplit:int=-1) -> List['AnsiStr']:
+        '''
+        Return a list of the substrings in the string, using sep as the separator string.
+
+        sep
+            The separator used to split the string.
+
+            When set to None (the default value), will split on any whitespace character (including \n \r \t \f and
+            spaces) and will discard empty strings from the result.
+        maxsplit
+            Maximum number of splits (starting from the left). -1 (the default value) means no limit.
+
+        Splitting starts at the end of the string and works to the front.
+        '''
+        return [AnsiStr(x) for x in self._ansi_string.rsplit(sep, maxsplit)]
+
+    def splitlines(self, keepends:bool=False) -> List['AnsiStr']:
+        '''
+        Return a list of the lines in the string, breaking at line boundaries.
+
+        Line breaks are not included in the resulting list unless keepends is given and true.
+        '''
+        return [AnsiStr(x) for x in self._ansi_string.splitlines(keepends)]
+
+    def swapcase(self) -> 'AnsiStr':
+        ''' Convert uppercase characters to lowercase and lowercase characters to uppercase. '''
+        cpy = self._ansi_string.copy()
+        cpy.swapcase(inplace=True)
+        return AnsiStr(cpy)
+
+    def title(self) -> 'AnsiStr':
+        '''
+        Return a version of the string where each word is titlecased.
+
+        More specifically, words start with uppercased characters and all remaining cased characters have lower case.
+        '''
+        cpy = self._ansi_string.copy()
+        cpy.title(inplace=True)
+        return AnsiStr(cpy)
+
+    def zfill(self, width:int) -> 'AnsiString':
+        '''
+        Pad a numeric string with zeros on the left, to fill a field of the given width.
+
+        The string is never truncated.
+        '''
+        cpy = self._ansi_string.copy()
+        cpy.zfill(width, inplace=True)
+        return AnsiStr(cpy)
+
+class _AnsiStrCharIterator:
+    '''
+    Internally-used class which helps iterate over characters
+    '''
+    def __init__(self, s:'AnsiStr'):
+        self.current_idx:int = -1
+        self.s:AnsiStr = s
+
+    def __iter__(self):
+        return self
+
+    def __next__(self) -> 'AnsiStr':
         self.current_idx += 1
         if self.current_idx >= len(self.s):
             raise StopIteration
