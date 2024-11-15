@@ -27,7 +27,7 @@ from typing import Any, Union, List, Dict, Tuple
 from .ansi_param import AnsiParam
 from .ansi_format import AnsiFormat, AnsiSetting, ColorComponentType, ColourComponentType, ansi_sep, ansi_escape_format, ansi_escape_clear
 
-__version__ = '1.0.7'
+__version__ = '1.0.8'
 PACKAGE_NAME = 'ansi-string'
 
 # Constant: all characters considered to be whitespaces
@@ -1384,7 +1384,10 @@ class _AnsiSettingPoint:
 
     @staticmethod
     def _scrub_ansi_format_string(ansi_format:str) -> List[AnsiSetting]:
-        if ansi_format.startswith("["):
+        if not ansi_format:
+            # Empty string - no formats
+            return []
+        elif ansi_format.startswith("["):
             # Use the rest of the string as-is for settings
             return [AnsiSetting(ansi_format[1:])]
         else:
