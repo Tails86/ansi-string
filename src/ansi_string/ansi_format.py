@@ -254,6 +254,15 @@ class AnsiFormat(Enum):
     FG_WHITE=AnsiParam.FG_WHITE.value
     FG_DEFAULT=AnsiParam.FG_DEFAULT.value
 
+    FG_BRIGHT_BLACK=AnsiParam.FG_BRIGHT_BLACK.value
+    FG_BRIGHT_RED=AnsiParam.FG_BRIGHT_RED.value
+    FG_BRIGHT_GREEN=AnsiParam.FG_BRIGHT_GREEN.value
+    FG_BRIGHT_YELLOW=AnsiParam.FG_BRIGHT_YELLOW.value
+    FG_BRIGHT_BLUE=AnsiParam.FG_BRIGHT_BLUE.value
+    FG_BRIGHT_MAGENTA=AnsiParam.FG_BRIGHT_MAGENTA.value
+    FG_BRIGHT_CYAN=AnsiParam.FG_BRIGHT_CYAN.value
+    FG_BRIGHT_WHITE=AnsiParam.FG_BRIGHT_WHITE.value
+
     # Alias FG_XXX to XXX
     BLACK=FG_BLACK
     RED=FG_RED
@@ -263,6 +272,14 @@ class AnsiFormat(Enum):
     MAGENTA=FG_MAGENTA
     CYAN=FG_CYAN
     WHITE=FG_WHITE
+    BRIGHT_BLACK=FG_BRIGHT_BLACK
+    BRIGHT_RED=FG_BRIGHT_RED
+    BRIGHT_GREEN=FG_BRIGHT_GREEN
+    BRIGHT_YELLOW=FG_BRIGHT_YELLOW
+    BRIGHT_BLUE=FG_BRIGHT_BLUE
+    BRIGHT_MAGENTA=FG_BRIGHT_MAGENTA
+    BRIGHT_CYAN=FG_BRIGHT_CYAN
+    BRIGHT_WHITE=FG_BRIGHT_WHITE
 
     BG_BLACK=AnsiParam.BG_BLACK.value
     BG_RED=AnsiParam.BG_RED.value
@@ -273,6 +290,15 @@ class AnsiFormat(Enum):
     BG_CYAN=AnsiParam.BG_CYAN.value
     BG_WHITE=AnsiParam.BG_WHITE.value
     BG_DEFAULT=AnsiParam.BG_DEFAULT.value
+
+    BG_BRIGHT_BLACK=AnsiParam.BG_BRIGHT_BLACK.value
+    BG_BRIGHT_RED=AnsiParam.BG_BRIGHT_RED.value
+    BG_BRIGHT_GREEN=AnsiParam.BG_BRIGHT_GREEN.value
+    BG_BRIGHT_YELLOW=AnsiParam.BG_BRIGHT_YELLOW.value
+    BG_BRIGHT_BLUE=AnsiParam.BG_BRIGHT_BLUE.value
+    BG_BRIGHT_MAGENTA=AnsiParam.BG_BRIGHT_MAGENTA.value
+    BG_BRIGHT_CYAN=AnsiParam.BG_BRIGHT_CYAN.value
+    BG_BRIGHT_WHITE=AnsiParam.BG_BRIGHT_WHITE.value
 
     # Extended color set (names match html names)
     FG_INDIAN_RED=_AnsiControlFn.fg_rgb(205, 92, 92)

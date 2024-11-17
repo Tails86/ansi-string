@@ -31,11 +31,49 @@ from .ansi_format import (
     ansi_graphic_rendition_code_end
 )
 
-__version__ = '1.1.0'
+__version__ = '1.1.1'
 PACKAGE_NAME = 'ansi-string'
 
 # Constant: all characters considered to be whitespaces - this is used in strip functionality
 WHITESPACE_CHARS = ' \t\n\r\v\f'
+
+def cursor_up_str(n:int=1) -> str:
+    return ansi_control_sequence_introducer + str(n) + 'A'
+
+def cursor_down_str(n:int=1) -> str:
+    return ansi_control_sequence_introducer + str(n) + 'B'
+
+def cursor_forward_str(n:int=1) -> str:
+    return ansi_control_sequence_introducer + str(n) + 'C'
+
+def cursor_backward_str(n:int=1) -> str:
+    return ansi_control_sequence_introducer + str(n) + 'D'
+
+cursor_back_str = cursor_backward_str
+
+def cursor_next_line_str(n:int=1) -> str:
+    return ansi_control_sequence_introducer + str(n) + 'E'
+
+def cursor_previous_line_str(n:int=1) -> str:
+    return ansi_control_sequence_introducer + str(n) + 'F'
+
+def cursor_horizontal_absolute_str(n:int) -> str:
+    return ansi_control_sequence_introducer + str(n) + 'G'
+
+def cursor_position_str(row:int, column:int) -> str:
+    return ansi_control_sequence_introducer + str(row) + ';' + str(column) + 'H'
+
+def erase_in_display_str(n:int) -> str:
+    return ansi_control_sequence_introducer + str(n) + 'J'
+
+def erase_in_line_str(n:int) -> str:
+    return ansi_control_sequence_introducer + str(n) + 'K'
+
+def scroll_up_str(n:int) -> str:
+    return ansi_control_sequence_introducer + str(n) + 'S'
+
+def scroll_down_str(n:int) -> str:
+    return ansi_control_sequence_introducer + str(n) + 'T'
 
 class AnsiControlSequence:
     def __init__(self, sequence:str, ender:str):
@@ -609,46 +647,64 @@ class AnsiString(collections.UserString):
         ''' Returns repr of a string with ANSI-formatting applied '''
         return self.__format__(None).__repr__()
 
-    def _apply_string_format(self, string_format:str):
+    def _apply_string_format(self, string_format:str, settings:Union[AnsiFormat, AnsiSetting, str, int, list, tuple]):
         '''
         Applies string formatting, given from the format spec (justification settings)
         Parameters:
             string_format - the string format to apply
+        Returns:
+            (start, end) values where accompanying formats should be applied
         '''
+        extend_formatting = True
         match = re.search(r'^(.?)([+-]?)<([0-9]*)$', string_format)
         if match:
             # Left justify
             num = match.group(3)
+            extend_formatting = (not match.group(2) or match.group(2) == '+')
+            if not extend_formatting and settings:
+                self.apply_formatting(settings)
             if num:
                 self.ljust(
                     int(num),
                     match.group(1) or ' ',
                     inplace=True,
-                    extend_formatting=(not match.group(2) or match.group(2) == '+'))
+                    extend_formatting=extend_formatting)
+            if extend_formatting and settings:
+                self.apply_formatting(settings)
             return
 
         match = re.search(r'^(.?)([+-]?)>([0-9]*)$', string_format)
         if match:
             # Right justify
             num = match.group(3)
+            extend_formatting = (not match.group(2) or match.group(2) == '+')
+            if not extend_formatting and settings:
+                self.apply_formatting(settings)
             if num:
                 self.rjust(
                     int(num),
                     match.group(1) or ' ',
                     inplace=True,
-                    extend_formatting=(not match.group(2) or match.group(2) == '+'))
+                    extend_formatting=extend_formatting)
+            if extend_formatting and settings:
+                self.apply_formatting(settings)
             return
 
         match = re.search(r'^(.?)([+-]?)\^([0-9]*)$', string_format)
         if match:
             # Center
             num = match.group(3)
+            extend_formatting = (not match.group(2) or match.group(2) == '+')
+            if not extend_formatting and settings:
+                self.apply_formatting(settings)
             if num:
                 self.center(
                     int(num),
                     match.group(1) or ' ',
                     inplace=True,
-                    extend_formatting=(not match.group(2) or match.group(2) == '+'))
+                    extend_formatting=extend_formatting)
+            if extend_formatting and settings:
+                self.apply_formatting(settings)
             return
 
         match = re.search(r'^[<>\^]?[+-]?[0-9]*$', string_format)
@@ -666,10 +722,12 @@ class AnsiString(collections.UserString):
         '''
         Returns an ANSI format string with both internal and given formatting spec set.
         Parameters:
-            __format_spec - must be in the format "[string_format][:ansi_format]" where string_format is the standard
-                            string format specifier and ansi_format contains 0 or more ansi directives separated by
-                            semicolons (;)
+            __format_spec - must be in the format "[string_format[:ansi_format]]" where string_format is an extension of
+                            the standard string format specifier and ansi_format contains 0 or more ansi directives
+                            separated by semicolons (;)
                             ex: ">10:bold;red" to make output right justify with width of 10, bold and red formatting
+                            No formatting should be applied as part of the justification, add a '-' after the fillchar.
+                            ex: " ->10:bold;red" to not not apply formatting to justification characters
         '''
         if not __format_spec and not self._fmts:
             # No formatting
@@ -681,13 +739,17 @@ class AnsiString(collections.UserString):
 
             format_parts = __format_spec.split(':', 1)
 
-            if format_parts[0]:
-                # Normal string formatting
-                obj._apply_string_format(format_parts[0])
-
             if len(format_parts) > 1:
                 # ANSI color/style formatting
-                obj.apply_formatting(format_parts[1])
+                settings = format_parts[1]
+            else:
+                settings = None
+
+            if format_parts[0]:
+                # Normal string formatting
+                obj._apply_string_format(format_parts[0], settings)
+            elif settings:
+                obj.apply_formatting(settings)
         else:
             # No changes - just copy the reference
             obj = self
@@ -781,8 +843,9 @@ class AnsiString(collections.UserString):
                 # Move the removal settings from previous end to new end (formats the right fillchars with same as last char)
                 if old_len in obj._fmts:
                     obj._fmts[len(obj.data)] = obj._fmts.pop(old_len)
-                # Shift all indices except for the origin (formats the left fillchars with same as first char)
-                obj._shift_settings_idx(left_spaces, True)
+            # Shift all indices except for the origin
+            # (formats the left fillchars with same as first char when extend_formatting==True)
+            obj._shift_settings_idx(left_spaces, extend_formatting)
 
         return obj
 
@@ -835,9 +898,9 @@ class AnsiString(collections.UserString):
         num = width - old_len
         if num > 0:
             obj.data = fillchar * num + obj.data
-            if extend_formatting:
-                # Shift all indices except for the origin (formats the left fillchars with same as first char)
-                obj._shift_settings_idx(num, True)
+            # Shift all indices except for the origin
+            # (formats the left fillchars with same as first char when extend_formatting==True)
+            obj._shift_settings_idx(num, extend_formatting)
 
         return obj
 

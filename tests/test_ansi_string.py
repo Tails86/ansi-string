@@ -91,6 +91,13 @@ class AnsiStringTests(unittest.TestCase):
             '\x1b[1;31m                                 This string will be formatted bold and red, right justify\x1b[m'
         )
 
+    def test_format_right_justify_no_extend(self):
+        s = AnsiString('This string will be formatted bold and red, right justify')
+        self.assertEqual(
+            f'{s: ->90:01;31}',
+            '                                 \x1b[1;31mThis string will be formatted bold and red, right justify\x1b[m'
+        )
+
     def test_format_left_justify_and_strings(self):
         s = AnsiString('This string will be formatted bold and red', 'bold')
         self.assertEqual(
@@ -98,11 +105,25 @@ class AnsiStringTests(unittest.TestCase):
             '\x1b[1;31mThis string will be formatted bold and red++++++++++++++++++++++++++++++++++++++++++++++++\x1b[m'
         )
 
+    def test_format_left_justify_no_extend_and_strings(self):
+        s = AnsiString('This string will be formatted bold and red', 'bold')
+        self.assertEqual(
+            '{:+-<90:fg_red}'.format(s),
+            '\x1b[1;31mThis string will be formatted bold and red\x1b[m++++++++++++++++++++++++++++++++++++++++++++++++'
+        )
+
     def test_format_center_and_verbatim_string(self):
         s = AnsiString('This string will be formatted bold and red')
         self.assertEqual(
             '{:*^90:[this is not parsed}'.format(s),
             '\x1b[this is not parsedm************************This string will be formatted bold and red************************\x1b[m'
+        )
+
+    def test_format_center_no_extend_and_verbatim_string(self):
+        s = AnsiString('This string will be formatted bold and red')
+        self.assertEqual(
+            '{:*-^90:[this is not parsed}'.format(s),
+            '************************\x1b[this is not parsedmThis string will be formatted bold and red\x1b[m************************'
         )
 
     def test_no_format_and_rgb_functions(self):
