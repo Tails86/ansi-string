@@ -33,7 +33,84 @@ en_tty_ansi(sys.stdout)
 
 ### AnsiString
 
-![Examples](https://raw.githubusercontent.com/Tails86/ansi-string/9d49f88da0275c7a77a63b6d6a90a4e75a80585a/docs/examples.jpg)
+Code:
+```py
+from ansi_string import AnsiString
+s = AnsiString('This string is red and bold', AnsiFormat.BOLD, AnsiFormat.RED)
+print(s)
+```
+Output:
+![Example 1 Output](https://raw.githubusercontent.com/Tails86/ansi-string/32d5b2fed1c1ac061a5382b80faa65bbf794290c/docs/out1.png)
+
+Code:
+```py
+from ansi_string import AnsiString, AnsiFormat
+s = AnsiString.join('This ', AnsiString('string', AnsiFormat.BOLD))
+s += AnsiString(' contains ') + AnsiString('multiple', AnsiFormat.BG_BLUE)
+s += ' color settings across different ranges'
+s.apply_formatting([AnsiFormat.FG_ORANGE, AnsiFormat.ITALIC], 21, 35)
+# Blue and orange will conflict - blue applied on bottom, so orange will show for [21:35]
+s.apply_formatting(AnsiFormat.FG_BLUE, 21, 44, topmost=False)
+print(s)
+```
+Output:
+![Example 2 Output](https://raw.githubusercontent.com/Tails86/ansi-string/32d5b2fed1c1ac061a5382b80faa65bbf794290c/docs/out2.png)
+
+Code:
+```py
+from ansi_string import AnsiString
+s = AnsiString('This string will be formatted bold and red, right justify')
+# An AnsiString format string uses the format: [string_format[:ansi_format]]
+# For ansi_format, use any name within AnsiFormat and separate directives with semicolons
+print('{:>90:bold;red}'.format(s))
+```
+Output:
+![Example 3 Output](https://raw.githubusercontent.com/Tails86/ansi-string/32d5b2fed1c1ac061a5382b80faa65bbf794290c/docs/out3.png)
+
+Code:
+```py
+from ansi_string import AnsiString
+s = AnsiString('This string will be formatted bold and red')
+# Use double colon to skip specification of string_format
+print('{::bold;red}'.format(s))
+```
+Output:
+![Example 4 Output](https://raw.githubusercontent.com/Tails86/ansi-string/32d5b2fed1c1ac061a5382b80faa65bbf794290c/docs/out4.png)
+
+Code:
+```py
+from ansi_string import AnsiString
+s1 = 'This is a normal string'
+s2 = AnsiString('This is an ANSI string')
+# AnsiString may also be used in an F-String
+print(f'String 1: "{s1}" String 2: "{s2::bold;purple}"')
+```
+Output:
+![Example 5 Output](https://raw.githubusercontent.com/Tails86/ansi-string/32d5b2fed1c1ac061a5382b80faa65bbf794290c/docs/out5.png)
+
+Code:
+```py
+from ansi_string import AnsiString
+s = AnsiString('Manually adjust colors of foreground, background, and underline')
+print(f'{s::rgb(0x8A2BE2);bg_rgb(100, 232, 170);ul_rgb(0xFF, 0x63, 0x47)}')
+```
+Output:
+![Example 6 Output](https://raw.githubusercontent.com/Tails86/ansi-string/32d5b2fed1c1ac061a5382b80faa65bbf794290c/docs/out6.png)
+
+Code:
+```py
+from ansi_string import AnsiString, AnsiFormat
+s = AnsiString(
+    'This example shows how to format and unformat matching',
+    AnsiFormat.dul_rgb(0xFF, 0x80, 0x00),
+    AnsiFormat.ITALIC
+)
+s.format_matching('[a-z]*mat', AnsiFormat.RED, match_case=True, regex=True)
+s.unformat_matching('unformat') # don't specify any format to remove all formatting in matching range
+print(s)
+```
+Output:
+![Example 7 Output](https://raw.githubusercontent.com/Tails86/ansi-string/32d5b2fed1c1ac061a5382b80faa65bbf794290c/docs/out7.png)
 
 Refer to the [AnsiString test file](https://github.com/Tails86/ansi-string/blob/main/tests/test_ansi_string.py) for more examples on how to use the AnsiString class.
 
