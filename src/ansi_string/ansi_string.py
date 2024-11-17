@@ -1676,10 +1676,7 @@ class AnsiStr(str):
         *settings:Union[AnsiFormat, AnsiSetting, str, int, list, tuple]
     ):
         if isinstance(s, AnsiString):
-            if settings:
-                ansi_string = AnsiString(s, *settings)
-            else:
-                ansi_string = s
+            ansi_string = s
         elif isinstance(s, AnsiStr):
             if settings:
                 ansi_string = AnsiString(s, *settings)
@@ -1691,6 +1688,7 @@ class AnsiStr(str):
             ansi_string = AnsiString(s, *settings)
         else:
             raise TypeError('Invalid type for s')
+        ansi_string.simplify()
         instance = super().__new__(cls, str(ansi_string))
         instance.data = ansi_string.base_str
         return instance
@@ -1748,10 +1746,6 @@ class AnsiStr(str):
               are not internally modified after creation.
         '''
         return AnsiStr(AnsiString(str(self)).__getitem__(val))
-
-    def simplify(self):
-        '''Attempts to simplify formatting by re-parsing the ANSI formatting data'''
-        return AnsiStr(str(self))
 
     def apply_formatting(
             self,

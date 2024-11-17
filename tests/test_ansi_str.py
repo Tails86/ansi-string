@@ -747,7 +747,7 @@ class AnsiStrTests(unittest.TestCase):
     def test_simplify(self):
         s = AnsiStr('abc', 'green')
         s = s.apply_formatting('red')
-        s = s.simplify()
+        # String should automatically be simplified
         self.assertEqual(str(s), '\x1b[31mabc\x1b[m')
 
 if __name__ == '__main__':
