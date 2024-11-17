@@ -31,7 +31,7 @@ from .ansi_format import (
     ansi_graphic_rendition_code_end
 )
 
-__version__ = '1.0.9'
+__version__ = '1.1.0'
 PACKAGE_NAME = 'ansi-string'
 
 # Constant: all characters considered to be whitespaces - this is used in strip functionality
