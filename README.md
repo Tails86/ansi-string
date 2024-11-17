@@ -33,6 +33,7 @@ en_tty_ansi(sys.stdout)
 
 ### AnsiString
 
+#### Example 1
 Code:
 ```py
 from ansi_string import AnsiString
@@ -41,6 +42,8 @@ print(s)
 ```
 Output:
 ![Example 1 Output](https://raw.githubusercontent.com/Tails86/ansi-string/32d5b2fed1c1ac061a5382b80faa65bbf794290c/docs/out1.png)
+
+#### Example 2
 
 Code:
 ```py
@@ -56,6 +59,8 @@ print(s)
 Output:
 ![Example 2 Output](https://raw.githubusercontent.com/Tails86/ansi-string/32d5b2fed1c1ac061a5382b80faa65bbf794290c/docs/out2.png)
 
+#### Example 3
+
 Code:
 ```py
 from ansi_string import AnsiString
@@ -67,6 +72,8 @@ print('{:>90:bold;red}'.format(s))
 Output:
 ![Example 3 Output](https://raw.githubusercontent.com/Tails86/ansi-string/32d5b2fed1c1ac061a5382b80faa65bbf794290c/docs/out3.png)
 
+#### Example 4
+
 Code:
 ```py
 from ansi_string import AnsiString
@@ -76,6 +83,8 @@ print('{::bold;red}'.format(s))
 ```
 Output:
 ![Example 4 Output](https://raw.githubusercontent.com/Tails86/ansi-string/32d5b2fed1c1ac061a5382b80faa65bbf794290c/docs/out4.png)
+
+#### Example 5
 
 Code:
 ```py
@@ -88,6 +97,8 @@ print(f'String 1: "{s1}" String 2: "{s2::bold;purple}"')
 Output:
 ![Example 5 Output](https://raw.githubusercontent.com/Tails86/ansi-string/32d5b2fed1c1ac061a5382b80faa65bbf794290c/docs/out5.png)
 
+#### Example 6
+
 Code:
 ```py
 from ansi_string import AnsiString
@@ -95,7 +106,9 @@ s = AnsiString('Manually adjust colors of foreground, background, and underline'
 print(f'{s::rgb(0x8A2BE2);bg_rgb(100, 232, 170);ul_rgb(0xFF, 0x63, 0x47)}')
 ```
 Output:
-![Example 6 Output](https://raw.githubusercontent.com/Tails86/ansi-string/32d5b2fed1c1ac061a5382b80faa65bbf794290c/docs/out6.png)
+![Example 6 Output](https://raw.githubusercontent.com/Tails86/ansi-string/76fd7fe127ab65c2b0ff5215f1b1ce9e253d50e9/docs/out6.png)
+
+#### Example 7
 
 Code:
 ```py
@@ -111,6 +124,8 @@ print(s)
 ```
 Output:
 ![Example 7 Output](https://raw.githubusercontent.com/Tails86/ansi-string/32d5b2fed1c1ac061a5382b80faa65bbf794290c/docs/out7.png)
+
+#### More Examples
 
 Refer to the [AnsiString test file](https://github.com/Tails86/ansi-string/blob/main/tests/test_ansi_string.py) for more examples on how to use the AnsiString class.
 
