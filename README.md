@@ -122,7 +122,7 @@ Refer to the [AnsiString test file](https://github.com/Tails86/ansi-string/blob/
 
 ### AnsiStr
 
-AnsiStr is an immutable version of AnsiString. The advantage of this object is that isinstance(AnsiStr(), str) returns True. The disadvantages all formatting functionality return a new object rather than formatting in-place, and the output is always automatically simplified, so no escape codes outside of the internally-known codes may be used.
+AnsiStr is an immutable version of AnsiString. The advantage of this object is that isinstance(AnsiStr(), str) returns True. The disadvantages are that all formatting functionality return a new object rather than formatting in-place, and the output is always automatically simplified, so using escape codes outside of the internally-known ones may result in undesired behavior.
 
 #### Example 1
 Code:
