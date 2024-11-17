@@ -22,6 +22,15 @@ To install, ensure you are connected to the internet and execute: `python3 -m pi
 
 ## Examples
 
+### Setup
+
+The function `en_tty_ansi()` is helpful to ensure ANSI formatting is enabled on Windows stdout. This function will return True without action on any other operating system. Call this function before attempting to print to the terminal in order to ensure support.
+
+```py
+from ansi_string import en_tty_ansi
+en_tty_ansi(sys.stdout)
+```
+
 ### AnsiString
 
 ![Examples](https://raw.githubusercontent.com/Tails86/ansi-string/9d49f88da0275c7a77a63b6d6a90a4e75a80585a/docs/examples.jpg)
