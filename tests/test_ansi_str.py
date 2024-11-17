@@ -606,6 +606,11 @@ class AnsiStrTests(unittest.TestCase):
         s = AnsiStr('Hello Hello mmm', 'bold')
         self.assertEqual(s.count('m'), 3)
 
+    def test_clear_formatting(self):
+        s = AnsiStr('Hello Hello', 'bold')
+        s = s.clear_formatting()
+        self.assertEqual(str(s), 'Hello Hello')
+
     def test_base_str(self):
         s = AnsiStr('Hello Hello', 'bold')
         self.assertEqual(s.base_str, 'Hello Hello')

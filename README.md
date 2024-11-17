@@ -122,7 +122,7 @@ Refer to the [AnsiString test file](https://github.com/Tails86/ansi-string/blob/
 
 ### AnsiStr
 
-AnsiStr is an immutable version of AnsiString. The advantage of this object is that isinstance(AnsiStr(), str) returns True.
+AnsiStr is an immutable version of AnsiString. The advantage of this object is that isinstance(AnsiStr(), str) returns True. The disadvantages all formatting functionality return a new object rather than formatting in-place, and the output is always automatically simplified, so no escape codes outside of the internally-known codes may be used.
 
 #### Example 1
 Code:
@@ -247,10 +247,9 @@ For Windows, this returns True if the given IO is a TTY (i.e. not piped to a fil
 
 ### Construction
 
-The AnsiString class contains the following `__init__` method.
+The AnsiString and AnsiStr classes contains the following `__init__` method.
 
 ```py
-class AnsiString:
     def __init__(self, s:str='', *setting_or_settings:Union[List[str], str, List[int], int, List[AnsiFormat], AnsiFormat]): ...
 ```
 
@@ -287,16 +286,16 @@ print(s)
 
 ### Concatenation
 
-- The static method `AnsiString.join()` is provided to join together 0 to many `str` and `AnsiString` values into a single `AnsiString`.
-- The `+` operator may be used to join an `AnsiString` with another `AnsiString` or `str` into a new `AnsiString`
-    - The `+` operator may not be used if the left-hand-side value is a `str` and the right-hand-side values is an `AnsiString`
-- The `+=` operator may be used to append an `AnsiString` or `str` to an `AnsiString`
+- The static methods `AnsiString.join()` and `AnsiStr.join()` are provided to join together 0 to many `AnsiStr`, `AnsiString`, and `str` values into a single `AnsiString` or `AnsiStr`.
+- The `+` operator may be used to join an `AnsiString` or `AnsiStr` with another `AnsiStr`, `AnsiString`, or `str` into a new object
+    - The `+` operator may not be used if the left-hand-side value is a `str` and the right-hand-side values is an `AnsiString` or `AnsiStr`
+- The `+=` operator may be used to append an `AnsiStr`, `AnsiString`, or `str` to an `AnsiString` or `AnsiStr`
 
 Examples:
 
 ```py
-s = AnsiString.join("This ", AnsiString("string", AnsiFormat.BOLD))
-s += AnsiString(" contains ") + AnsiString("multiple", AnsiFormat.BG_BLUE)
+s = AnsiString.join("This ", AnsiStr("string", AnsiFormat.BOLD))
+s += AnsiStr(" contains ") + AnsiStr("multiple", AnsiFormat.BG_BLUE)
 s += AnsiString(" color ", AnsiFormat.FG_ORANGE, AnsiFormat.ITALIC) + "settings accross different ranges"
 print(s)
 ```
@@ -305,7 +304,7 @@ print(s)
 
 #### apply_formatting
 
-The method `AnsiString.apply_formatting()` is provided to append formatting to a previously constructed `AnsiString`.
+The method `AnsiString.apply_formatting()` is provided to append formatting to a previously constructed `AnsiString`. The method `AnsiStr.apply_formatting()` works similarly except it returns a new object since `AnsiStr` is immutable.
 
 Example:
 
@@ -315,11 +314,18 @@ s.apply_formatting(AnsiFormat.BOLD, 5, 11)
 s.apply_formatting(AnsiFormat.BG_BLUE, 21, 29)
 s.apply_formatting([AnsiFormat.FG_ORANGE, AnsiFormat.ITALIC], 21, 35)
 print(s)
+
+# This will result in the same printout using AnsiStr instead of AnsiString
+s = AnsiStr("This string contains multiple color settings across different ranges")
+s = s.apply_formatting(AnsiFormat.BOLD, 5, 11)
+s = s.apply_formatting(AnsiFormat.BG_BLUE, 21, 29)
+s = s.apply_formatting([AnsiFormat.FG_ORANGE, AnsiFormat.ITALIC], 21, 35)
+print(s)
 ```
 
 #### Format String
 
-A format string may be used to format an AnsiString before printing. The format specification string must be in the format `"[string_format][:ansi_format]"` where `string_format` is the standard string format specifier and `ansi_format` contains 0 or more ANSI directives separated by semicolons (;). The ANSI directives may be any of the same string values that can be passed to the `AnsiString` constructor. If no `string_format` is desired, then it can be set to an empty string.
+A format string may be used to format an AnsiString before printing. The format specification string must be in the format `"[string_format][:ansi_format]"` where `string_format` is the standard string format specifier and `ansi_format` contains 0 or more ANSI directives separated by semicolons (;). The ANSI directives may be any of the same string values that can be passed to the `AnsiString` constructor. If no `string_format` is desired, then it can be set to an empty string. This same functionality is available in `AnsiStr`.
 
 Examples:
 
@@ -342,7 +348,7 @@ print(f"{ansi_str::rgb({fg_color});bg_rgb({bg_colors});ul_rgb({ul_colors})}")
 
 #### format_matching and unformat_matching
 
-The method `AnsiString.format_matching()` and `AnsiString.unformat_matching()` are provided to apply or remove formatting of an `AnsiString` based on a match specification.
+The methods `AnsiString.format_matching()` and `AnsiString.unformat_matching()` are provided to apply or remove formatting of an `AnsiString` based on a match specification. The methods `AnsiStr.format_matching()` and `AnsiStr.unformat_matching()` work similarly except they return a new object since `AnsiStr` is immutable.
 
 Example:
 
@@ -353,27 +359,35 @@ s.format_matching("[A-Za-z]+ing", "cyan", AnsiFormat.BG_PINK, regex=True, match_
 # This will remove BOLD from "strING" and "formatting"
 s.unformat_matching("[A-Za-z]+ing", AnsiFormat.BOLD, regex=True)
 print(s)
+
+# This will result in the same printout using AnsiStr instead of AnsiString
+s = AnsiStr("Here is a strING that I will match formatting", AnsiFormat.BOLD)
+# This will make the word "formatting" cyan with a pink background
+s = s.format_matching("[A-Za-z]+ing", "cyan", AnsiFormat.BG_PINK, regex=True, match_case=True)
+# This will remove BOLD from "strING" and "formatting"
+s = s.unformat_matching("[A-Za-z]+ing", AnsiFormat.BOLD, regex=True)
+print(s)
 ```
 
 #### clear_formatting
 
-Calling the method `AnsiString.clear_formatting()` will clear all formatting applied.
+Calling the method `AnsiString.clear_formatting()` will clear all formatting applied. The method `AnsiStr.clear_formatting()` works similarly except it returns a new object since `AnsiStr` is immutable.
 
 ### String Assignment
 
-The method `AnsiString.assign_str()` may be used to assign the internal string and adjust formatting as necessary.
+The method `AnsiString.assign_str()` may be used to assign the internal string and adjust formatting as necessary. There is no associated function available in `AnsiStr`.
 
 ### Base String Retrieval
 
-The attribute `AnsiString.base_str` may be used to retrieve the unformatted base string.
+The attributes `AnsiString.base_str` and `AnsiStr.base_str` may be used to retrieve the unformatted base string.
 
 ### Format Status
 
-The methods `AnsiString.ansi_settings_at()` and `AnsiString.settings_at()` may be used to retrieve the settings applied over a single character.
+The methods `AnsiString.ansi_settings_at()` and `AnsiString.settings_at()` may be used to retrieve the settings applied over a single character. The same methods exist in `AnsiStr`.
 
 ### Other String Methods
 
-Many other methods that are found in the `str` class such as `replace()` are available in `AnsiString` which manipulate the string while applying formatting where necessary.
+Many other methods that are found in the `str` class such as `replace()` are available in `AnsiString` and `AnsiStr` which manipulate the string while applying formatting where necessary.
 
 - capitalize
 - casefold

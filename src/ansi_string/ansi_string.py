@@ -2011,6 +2011,10 @@ class AnsiStr(str):
         cpy.unformat_matching(matchspec, *format, regex=regex, match_case=match_case, count=count)
         return AnsiStr(cpy)
 
+    def clear_formatting(self) -> 'AnsiStr':
+        ''' Returns a new AnsiStr object with all formatting cleared. '''
+        return AnsiStr(self.base_str)
+
     def __iter__(self) -> 'AnsiStr':
         ''' Iterates over each character of this AnsiStr '''
         return iter(_AnsiStrCharIterator(self))
