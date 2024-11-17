@@ -31,7 +31,7 @@ from .ansi_format import (
     ansi_graphic_rendition_code_end
 )
 
-__version__ = '1.1.1'
+__version__ = '1.1.2'
 PACKAGE_NAME = 'ansi-string'
 
 # Constant: all characters considered to be whitespaces - this is used in strip functionality
@@ -186,7 +186,8 @@ def _settings_to_dict(
             if effect_fn == AnsiParamEffectFn.APPLY_SETTING:
                 settings_dict[effect] = setting
             elif effect_fn == AnsiParamEffectFn.CLEAR_SETTING:
-                del settings_dict[effect]
+                if effect in settings_dict:
+                    del settings_dict[effect]
             else:
                 settings_dict = {}
     return settings_dict
@@ -321,6 +322,7 @@ class AnsiString(collections.UserString):
     def simplify(self):
         '''Attempts to simplify formatting by re-parsing the ANSI formatting data'''
         self.set_ansi_str(str(self))
+        self._make_simplified_output = True
 
     def _shift_settings_idx(self, num:int, keep_origin:bool):
         '''
