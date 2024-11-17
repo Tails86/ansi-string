@@ -22,9 +22,17 @@ To install, ensure you are connected to the internet and execute: `python3 -m pi
 
 ## Examples
 
+### AnsiString
+
 ![Examples](https://raw.githubusercontent.com/Tails86/ansi-string/9d49f88da0275c7a77a63b6d6a90a4e75a80585a/docs/examples.jpg)
 
-Refer to the [test file](https://github.com/Tails86/ansi-string/blob/main/tests/test_ansi_string.py) for more examples on how to use the AnsiString class.
+Refer to the [AnsiString test file](https://github.com/Tails86/ansi-string/blob/main/tests/test_ansi_string.py) for more examples on how to use the AnsiString class.
+
+### AnsiStr
+
+AnsiStr is an immutable version of AnsiString. The advantage of this object is that isinstance(AnsiStr(), str) returns True.
+
+Refer to the [AnsiStr test file](https://github.com/Tails86/ansi-string/blob/main/tests/test_ansi_str.py) for examples on how to use AnsiStr.
 
 ## Usage
 

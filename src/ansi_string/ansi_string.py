@@ -1854,7 +1854,7 @@ class AnsiStr(str):
 
     def __iter__(self) -> 'AnsiStr':
         ''' Iterates over each character of this AnsiStr '''
-        return iter(_GraphicStrCharIterator(self))
+        return iter(_AnsiStrCharIterator(self))
 
     def capitalize(self) -> 'AnsiString':
         '''
@@ -2316,19 +2316,19 @@ class AnsiStr(str):
         cpy.zfill(width, inplace=True)
         return AnsiStr(cpy)
 
-class _GraphicStrCharIterator:
+class _AnsiStrCharIterator:
     '''
     Internally-used class which helps iterate over characters
     '''
     def __init__(self, s:'AnsiStr'):
         self.current_idx:int = -1
-        self.s:AnsiStr = s
+        self.s:AnsiString = AnsiString(s)
 
     def __iter__(self):
         return self
 
-    def __next__(self) -> 'AnsiStr':
+    def __next__(self) -> 'AnsiString':
         self.current_idx += 1
         if self.current_idx >= len(self.s):
             raise StopIteration
-        return self.s[self.current_idx]
+        return AnsiStr(self.s[self.current_idx])
