@@ -22,15 +22,6 @@ To install, ensure you are connected to the internet and execute: `python3 -m pi
 
 ## Examples
 
-### Setup
-
-The function `en_tty_ansi()` is helpful to ensure ANSI formatting is enabled on Windows stdout. This function will return True without action on any other operating system. Call this function before attempting to print to the terminal in order to ensure support.
-
-```py
-from ansi_string import en_tty_ansi
-en_tty_ansi(sys.stdout)
-```
-
 ### AnsiString
 
 #### Example 1
@@ -132,6 +123,102 @@ Refer to the [AnsiString test file](https://github.com/Tails86/ansi-string/blob/
 ### AnsiStr
 
 AnsiStr is an immutable version of AnsiString. The advantage of this object is that isinstance(AnsiStr(), str) returns True.
+
+#### Example 1
+Code:
+```py
+from ansi_string import AnsiStr
+s = AnsiStr('This string is red and bold', AnsiFormat.BOLD, AnsiFormat.RED)
+print(s)
+```
+Output:
+![Example 1 Output](https://raw.githubusercontent.com/Tails86/ansi-string/32d5b2fed1c1ac061a5382b80faa65bbf794290c/docs/out1.png)
+
+#### Example 2
+
+Code:
+```py
+from ansi_string import AnsiStr, AnsiFormat
+s = AnsiStr.join('This ', AnsiStr('string', AnsiFormat.BOLD))
+s += AnsiStr(' contains ') + AnsiStr('multiple', AnsiFormat.BG_BLUE)
+s += ' color settings across different ranges'
+# Since AnsiStr is immutable, apply_formatting() returns a new object rather than formatting in-place
+s = s.apply_formatting([AnsiFormat.FG_ORANGE, AnsiFormat.ITALIC], 21, 35)
+# Blue and orange will conflict - blue applied on bottom, so orange will show for [21:35]
+s = s.apply_formatting(AnsiFormat.FG_BLUE, 21, 44, topmost=False)
+print(s)
+```
+Output:
+![Example 2 Output](https://raw.githubusercontent.com/Tails86/ansi-string/32d5b2fed1c1ac061a5382b80faa65bbf794290c/docs/out2.png)
+
+#### Example 3
+
+Code:
+```py
+from ansi_string import AnsiStr
+s = AnsiStr('This string will be formatted bold and red, right justify')
+# An AnsiStr format string uses the format: [string_format[:ansi_format]]
+# For ansi_format, use any name within AnsiFormat and separate directives with semicolons
+print('{:>90:bold;red}'.format(s))
+```
+Output:
+![Example 3 Output](https://raw.githubusercontent.com/Tails86/ansi-string/32d5b2fed1c1ac061a5382b80faa65bbf794290c/docs/out3.png)
+
+#### Example 4
+
+Code:
+```py
+from ansi_string import AnsiStr
+s = AnsiStr('This string will be formatted bold and red')
+# Use double colon to skip specification of string_format
+print('{::bold;red}'.format(s))
+```
+Output:
+![Example 4 Output](https://raw.githubusercontent.com/Tails86/ansi-string/32d5b2fed1c1ac061a5382b80faa65bbf794290c/docs/out4.png)
+
+#### Example 5
+
+Code:
+```py
+from ansi_string import AnsiStr
+s1 = 'This is a normal string'
+s2 = AnsiStr('This is an ANSI string')
+# AnsiStr may also be used in an F-String
+print(f'String 1: "{s1}" String 2: "{s2::bold;purple}"')
+```
+Output:
+![Example 5 Output](https://raw.githubusercontent.com/Tails86/ansi-string/32d5b2fed1c1ac061a5382b80faa65bbf794290c/docs/out5.png)
+
+#### Example 6
+
+Code:
+```py
+from ansi_string import AnsiStr
+s = AnsiStr('Manually adjust colors of foreground, background, and underline')
+print(f'{s::rgb(0x8A2BE2);bg_rgb(100, 232, 170);ul_rgb(0xFF, 0x63, 0x47)}')
+```
+Output:
+![Example 6 Output](https://raw.githubusercontent.com/Tails86/ansi-string/76fd7fe127ab65c2b0ff5215f1b1ce9e253d50e9/docs/out6.png)
+
+#### Example 7
+
+Code:
+```py
+from ansi_string import AnsiStr, AnsiFormat
+s = AnsiStr(
+    'This example shows how to format and unformat matching',
+    AnsiFormat.dul_rgb(0xFF, 0x80, 0x00),
+    AnsiFormat.ITALIC
+)
+# Since AnsiStr is immutable, these calls return a new object rather than formatting in-place
+s = s.format_matching('[a-z]*mat', AnsiFormat.RED, match_case=True, regex=True)
+s = s.unformat_matching('unformat') # don't specify any format to remove all formatting in matching range
+print(s)
+```
+Output:
+![Example 7 Output](https://raw.githubusercontent.com/Tails86/ansi-string/32d5b2fed1c1ac061a5382b80faa65bbf794290c/docs/out7.png)
+
+#### More Examples
 
 Refer to the [AnsiStr test file](https://github.com/Tails86/ansi-string/blob/main/tests/test_ansi_str.py) for examples on how to use AnsiStr.
 
