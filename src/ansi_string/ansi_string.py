@@ -1167,7 +1167,7 @@ class AnsiString(collections.UserString):
         else:
             return self.clip(end=-len(suffix), inplace=inplace)
 
-    def replace(self, old:str, new:Union[str,'AnsiString'], count:int=-1, inplace:bool=False) -> 'AnsiString':
+    def replace(self, old:str, new:Union[str,'AnsiString','AnsiStr'], count:int=-1, inplace:bool=False) -> 'AnsiString':
         '''
         Does a find-and-replace - if new is a str, the string the is applied will take on the format settings of the
         first character of the old string in each replaced item.
@@ -1182,7 +1182,9 @@ class AnsiString(collections.UserString):
         obj = self
         idx = obj.data.find(old)
         while (count < 0 or count > 0) and idx >= 0:
-            if isinstance(new, str):
+            if isinstance(new, AnsiStr):
+                replace = AnsiString(new)
+            elif isinstance(new, str):
                 replace = AnsiString(new, obj.ansi_settings_at(idx))
             else:
                 replace = new
@@ -1674,7 +1676,6 @@ class _AnsiCharIterator:
 class AnsiStr(str):
     '''
     Immutable version of AnsiString. The advantage of this object is that isinstance(AnsiStr(), str) returns True.
-    This is currently experimental and not completely tested.
     '''
     def __new__(
         cls,
@@ -1755,6 +1756,10 @@ class AnsiStr(str):
               are not internally modified after creation.
         '''
         return AnsiStr(self._ansi_string.__getitem__(val))
+
+    def simplify(self):
+        '''Attempts to simplify formatting by re-parsing the ANSI formatting data'''
+        return AnsiStr(self.__str__())
 
     def apply_formatting(
             self,
@@ -1859,6 +1864,23 @@ class AnsiStr(str):
         ''' Iterates over each character of this AnsiStr '''
         return iter(_GraphicStrCharIterator(self))
 
+    def capitalize(self) -> 'AnsiString':
+        '''
+        Return a capitalized version of the string.
+        More specifically, make the first character have upper case and the rest lower case.
+        '''
+        cpy = self._ansi_string.copy()
+        cpy.capitalize(inplace=True)
+        return AnsiStr(cpy)
+
+    def casefold(self) -> 'AnsiString':
+        '''
+        Return a version of the string suitable for caseless comparisons.
+        '''
+        cpy = self._ansi_string.copy()
+        cpy.casefold(inplace=True)
+        return AnsiStr(cpy)
+
     def center(self, width:int, fillchar:str=' ') -> 'AnsiStr':
         '''
         Center justification.
@@ -1883,7 +1905,7 @@ class AnsiStr(str):
         cpy.ljust(width, fillchar, inplace=True)
         return AnsiStr(cpy)
 
-    def rjust(self, width:int, fillchar:str=' ', inplace:bool=False) -> 'AnsiStr':
+    def rjust(self, width:int, fillchar:str=' ') -> 'AnsiStr':
         '''
         Right justification.
         Parameters:
@@ -2079,15 +2101,13 @@ class AnsiStr(str):
         '''
         return self._ansi_string.endswith(suffix, start, end)
 
-    def expandtabs(self, tabsize:int=8, inplace:bool=False) -> 'AnsiStr':
+    def expandtabs(self, tabsize:int=8) -> 'AnsiStr':
         '''
         Replaces all tab characters with the given number of spaces
         Parameters:
             tabsize - number of spaces to replace each tab with
-            inplace - when True, do the conversion in-place and return self;
-                      when False, do the conversion on a copy and return the copy
         '''
-        return self.replace('\t', ' ' * tabsize, inplace=inplace)
+        return self.replace('\t', ' ' * tabsize)
 
     def find(self, sub:str, start:int=None, end:int=None) -> int:
         '''

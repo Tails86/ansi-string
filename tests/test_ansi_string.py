@@ -12,7 +12,7 @@ SOURCE_DIR = os.path.abspath(os.path.join(PROJECT_DIR, 'src'))
 
 if os.path.isdir(SOURCE_DIR):
     sys.path.insert(0, SOURCE_DIR)
-from ansi_string import en_tty_ansi, AnsiFormat, AnsiString, ColorComponentType, ColourComponentType
+from ansi_string import en_tty_ansi, AnsiFormat, AnsiStr, AnsiString, ColorComponentType, ColourComponentType
 
 def _is_windows():
     return sys.platform.lower().startswith('win')
@@ -27,7 +27,7 @@ class FakeStdIn:
             loaded_str = loaded_str.encode()
         self.buffer = BytesIO(loaded_str)
 
-class CliTests(unittest.TestCase):
+class AnsiStringTests(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -129,10 +129,26 @@ class CliTests(unittest.TestCase):
             '\x1b[1mbold\x1b[0;31mred\x1b[m'
         )
 
+    def test_add_ansistr(self):
+        s = AnsiString('bold', 'bold') + AnsiStr('red', 'red')
+        self.assertEqual(
+            str(s),
+            '\x1b[1mbold\x1b[0;31mred\x1b[m'
+        )
+
     def test_iadd(self):
         s = AnsiString('part bold')
         s.apply_formatting(AnsiFormat.BOLD, 0, 3)
         s += AnsiString('red', 'red')
+        self.assertEqual(
+            str(s),
+            '\x1b[1mpar\x1b[mt bold\x1b[31mred\x1b[m'
+        )
+
+    def test_iadd_ansistr(self):
+        s = AnsiString('part bold')
+        s.apply_formatting(AnsiFormat.BOLD, 0, 3)
+        s += AnsiStr('red', 'red')
         self.assertEqual(
             str(s),
             '\x1b[1mpar\x1b[mt bold\x1b[31mred\x1b[m'
