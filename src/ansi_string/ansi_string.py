@@ -241,13 +241,11 @@ class AnsiString:
         '''
         # Key is the string index to make a color change at
         self._fmts:Dict[int,'_AnsiSettingPoint'] = {}
-        self._optimize = False
         self._s = ''
 
         if isinstance(s, AnsiString):
             for k, v in s._fmts.items():
                 self._fmts[k] = _AnsiSettingPoint(list(v.add), list(v.rem))
-            self._optimize = s._optimize
             self._s = s._s
         elif isinstance(s, str):
             self.set_ansi_str(str(s))
@@ -328,18 +326,6 @@ class AnsiString:
         determined as invalid and remove redundant settings.
         '''
         self.set_ansi_str(str(self))
-
-    def enable_output_optimization(self):
-        '''
-        This sets the output-optimization flag to True. Whenever the output string is generated, all formatting data
-        will be parsed, throwing out any data internally determined as invalid, and the most efficient output will be
-        generated based on all known parameters.
-        '''
-        self._optimize = True
-
-    def disable_output_optimization(self):
-        ''' This sets the output-optimization flag to False. '''
-        self._optimize = False
 
     def _shift_settings_idx(self, num:int, keep_origin:bool):
         '''
@@ -742,7 +728,9 @@ class AnsiString:
 
     def is_optimizable(self) -> bool:
         '''
-        Returns True iff this object was not created with any verbatim setting strings that starts with "["
+        Returns True iff all of the following are true for this object:
+            - No verbatim setting strings (strings that starts with "[") were set in formatting
+            - All parsed settings are considered internally valid
         '''
         # Check if optimization is possible
         for fmt in self._fmts.values():
@@ -751,7 +739,7 @@ class AnsiString:
                     return False
         return True
 
-    def to_str(self, __format_spec:str=None, optimize:bool=None) -> str:
+    def to_str(self, __format_spec:str=None, optimize:bool=True) -> str:
         '''
         Returns an ANSI format string with both internal and given formatting spec set.
         Parameters:
@@ -761,14 +749,11 @@ class AnsiString:
                             ex: ">10:bold;red" to make output right justify with width of 10, bold and red formatting
                             No formatting should be applied as part of the justification, add a '-' after the fillchar.
                             ex: " ->10:bold;red" to not not apply formatting to justification characters
-            optimize - when set, overrides the internal output-optimization flag for this call
+            optimize - when true, attempt to optimize code strings
         '''
         if not __format_spec and not self._fmts:
             # No formatting
             return self._s
-
-        if optimize is None:
-            optimize = self._optimize
 
         if __format_spec:
             # Make a copy
@@ -812,6 +797,7 @@ class AnsiString:
                 # Settings were removed and there are settings to be applied -
                 # need to reset before applying current settings
                 settings_to_apply = [str(AnsiParam.RESET.value)] + settings_to_apply
+            apply_to_out_str = True
             codes_str = ansi_sep.join(settings_to_apply)
             if optimize:
                 old_settings_dict = current_settings_dict
@@ -822,13 +808,21 @@ class AnsiString:
                     if key not in new_settings_dict:
                         # Add the param that will clear this setting
                         settings_to_apply.append(str(EFFECT_CLEAR_DICT[key].value))
-                settings_to_apply += [str(value) for key, value in new_settings_dict.items() if key not in old_settings_dict]
+                settings_to_apply += [
+                    str(value)
+                    for key, value in new_settings_dict.items()
+                    if key not in old_settings_dict or old_settings_dict[key] != value
+                ]
                 optimized_codes_str = ansi_sep.join(settings_to_apply)
+                # Empty optimized codes string here just means the previous settings should be maintained, not deleted
+                if not optimized_codes_str:
+                    apply_to_out_str = False
                 # This check is necessary because sometimes the optimization will actually create a longer string
-                if len(optimized_codes_str) < len(codes_str):
+                elif len(optimized_codes_str) < len(codes_str):
                     codes_str = optimized_codes_str
             # Apply these settings
-            out_str += ansi_graphic_rendition_format.format(codes_str)
+            if apply_to_out_str:
+                out_str += ansi_graphic_rendition_format.format(codes_str)
             # Save this flag in case this is the last loop
             clear_needed = bool(current_settings)
 
@@ -1832,7 +1826,7 @@ class AnsiStr(str):
         *settings:Union[AnsiFormat, AnsiSetting, str, int, list, tuple]
     ):
         if isinstance(s, AnsiString):
-            ansi_string = s
+            ansi_string = s.copy()
         elif isinstance(s, AnsiStr):
             if settings:
                 ansi_string = AnsiString(s, *settings)
@@ -1845,7 +1839,6 @@ class AnsiStr(str):
         else:
             raise TypeError('Invalid type for s')
         ansi_string.simplify()
-        ansi_string.enable_output_optimization()
         instance = super().__new__(cls, str(ansi_string))
         instance._s = ansi_string.base_str
         return instance
