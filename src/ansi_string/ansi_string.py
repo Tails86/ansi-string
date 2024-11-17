@@ -251,6 +251,7 @@ class AnsiString(collections.UserString):
         Parses an ANSI formatted escape code sequence graphic rendition string into this object.
         Any formatting that isn't internally supported or invalid will be thrown out.
         '''
+        s = str(s) # In case this is an AnsiStr, get the raw string rather than its overrides
         current_settings:Dict[AnsiParamEffect, AnsiSetting] = {}
         parsed_str = ParsedAnsiControlSequenceString(s, False, ansi_graphic_rendition_code_end)
         self.data = parsed_str.unformatted_str
