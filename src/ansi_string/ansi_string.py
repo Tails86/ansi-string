@@ -24,14 +24,134 @@ import re
 import math
 import collections
 from typing import Any, Union, List, Dict, Tuple
-from .ansi_param import AnsiParam
-from .ansi_format import AnsiFormat, AnsiSetting, ColorComponentType, ColourComponentType, ansi_sep, ansi_escape_format, ansi_escape_clear
+from .ansi_param import AnsiParam, AnsiParamEffect, AnsiParamEffectFn
+from .ansi_format import (
+    AnsiFormat, AnsiSetting, ColorComponentType, ColourComponentType, ansi_sep, ansi_escape,
+    ansi_control_sequence_introducer, ansi_graphic_rendition_format, ansi_escape_clear,
+    ansi_graphic_rendition_code_end
+)
 
-__version__ = '1.0.8'
+__version__ = '1.0.9'
 PACKAGE_NAME = 'ansi-string'
 
-# Constant: all characters considered to be whitespaces
+# Constant: all characters considered to be whitespaces - this is used in strip functionality
 WHITESPACE_CHARS = ' \t\n\r\v\f'
+
+class AnsiControlSequence:
+    def __init__(self, sequence:str, ender:str):
+        self.sequence = sequence
+        self.ender = ender
+
+    def is_ender_valid(self) -> bool:
+        return (len(self.ender) == 1 and ord(self.ender) >= 0x40 and ord(self.ender) <= 0x7E)
+
+    def is_graphic(self) -> bool:
+        return self.ender == ansi_graphic_rendition_code_end
+
+class ParsedAnsiControlSequenceString(collections.UserString):
+    def __init__(self, s:str, allow_empty_ender:str=True, acceptable_enders:str=None):
+        visible_str = ''
+        self.sequences:Dict[int,AnsiControlSequence] = {}
+        i = 0
+        while i < len(s):
+            if s[i:i+len(ansi_control_sequence_introducer)] == ansi_control_sequence_introducer:
+                # This is the start of a Control Sequence Introducer command
+                i += len(ansi_control_sequence_introducer)
+                current_seq = ''
+                while i < len(s) and (ord(s[i]) < 0x40 or ord(s[i]) > 0x7E):
+                    current_seq += s[i]
+                    i += 1
+                ender = ''
+                if i < len(s):
+                    ender = s[i]
+                    i += 1
+                if (ender or allow_empty_ender) and (acceptable_enders is None or ender in acceptable_enders):
+                    self.sequences[len(visible_str)] = AnsiControlSequence(current_seq, ender)
+                else:
+                    # Put it all back into string
+                    visible_str += (ansi_control_sequence_introducer + current_seq + ender)
+            else:
+                visible_str += s[i]
+                i += 1
+        super().__init__(visible_str)
+
+    def __str__(self) -> str:
+        return self.formatted_str()
+
+    def __repr__(self) -> str:
+        return self.formatted_str()
+
+    @property
+    def formatted_str(self) -> str:
+        out_str = ''
+        last_ender = ''
+        last_idx = 0
+        for key, value in self.sequences.items():
+            out_str += self.data[last_idx:key] + last_ender
+            out_str += ansi_control_sequence_introducer + value.sequence
+            last_ender = value.ender
+            last_idx = key
+        out_str += self.data[last_idx:] + last_ender
+        return out_str
+
+    @property
+    def unformatted_str(self) -> str:
+        return self.data
+
+def _parse_graphic_sequence(sequence:str) -> List[AnsiSetting]:
+    if not sequence:
+        return [AnsiSetting(AnsiParam.RESET.value)]
+    output = []
+    items = [item.strip() for item in sequence.split(ansi_sep)]
+    idx = 0
+    left_in_set = 0
+    current_set = []
+    while idx < len(items):
+        try:
+            int_value = int(items[idx])
+        except:
+            int_value = None
+        finally:
+            if not current_set:
+                left_in_set = 1
+                if (
+                    int_value == AnsiParam.FG_SET.value or
+                    int_value == AnsiParam.BG_SET.value or
+                    int_value == AnsiParam.SET_UNDERLINE_COLOR.value
+                ):
+                    if idx + 1 < len(items):
+                        if items[idx + 1] == "5":
+                            left_in_set = 3
+                        elif items[ idx + 1] == "2":
+                            left_in_set = 5
+            if int_value:
+                current_set.append(int_value)
+            else:
+                current_set.append(items[idx])
+            left_in_set -= 1
+            if left_in_set <= 0:
+                output.append(AnsiSetting(current_set))
+                current_set = []
+        idx += 1
+    return output
+
+def _settings_to_dict(
+    settings:List[AnsiSetting],
+    old_settings_dict:Dict[AnsiParamEffect, AnsiSetting]
+) -> Dict[AnsiParamEffect, AnsiSetting]:
+    settings_dict:Dict[AnsiParamEffect, AnsiSetting] = dict(old_settings_dict)
+    for setting in settings:
+        initial_param = setting.get_initial_param()
+        if initial_param is not None:
+            effect = initial_param.effect_type
+            effect_fn = initial_param.effect_fn
+            if effect_fn == AnsiParamEffectFn.APPLY_SETTING:
+                settings_dict[effect] = setting
+            elif effect_fn == AnsiParamEffectFn.CLEAR_SETTING:
+                del settings_dict[effect]
+            else:
+                settings_dict = {}
+    return settings_dict
 
 class AnsiString(collections.UserString):
     '''
@@ -75,6 +195,9 @@ class AnsiString(collections.UserString):
                 - Never specify the reset directive (0) because this is implicitly handled internally
             - A single ANSI directive as an integer
         '''
+        # Key is the string index to make a color change at
+        self._fmts:Dict[int,'_AnsiSettingPoint'] = {}
+
         incoming_fmts = None
         if isinstance(s, AnsiString):
             incoming_fmts = s._fmts
@@ -84,11 +207,9 @@ class AnsiString(collections.UserString):
             super().__init__(s._ansi_string.data)
         elif isinstance(s, str):
             super().__init__(s)
+            self.set_ansi_str(s)
         else:
             raise TypeError('Invalid type for s')
-
-        # Key is the string index to make a color change at
-        self._fmts:Dict[int,'_AnsiSettingPoint'] = {}
 
         if incoming_fmts is not None:
             for k, v in incoming_fmts.items():
@@ -127,6 +248,43 @@ class AnsiString(collections.UserString):
     def copy(self) -> 'AnsiString':
         ''' Creates a new AnsiString which is a copy of the original '''
         return AnsiString(self)
+
+    def set_ansi_str(self, s:str) -> None:
+        '''
+        Parses an ANSI formatted escape code sequence graphic rendition string into this object.
+        Any formatting that isn't internally supported or invalid will be thrown out.
+        '''
+        current_settings:Dict[AnsiParamEffect, AnsiSetting] = {}
+        parsed_str = ParsedAnsiControlSequenceString(s, False, ansi_graphic_rendition_code_end)
+        self.data = parsed_str.unformatted_str
+        self._fmts = {}
+        for key, value in parsed_str.sequences.items():
+            if key >= len(self.data):
+                break
+            settings = _parse_graphic_sequence(value.sequence)
+            new_settings = _settings_to_dict(settings, current_settings)
+            settings_to_remove = []
+            settings_to_apply = []
+            old_settings = current_settings
+            current_settings = new_settings
+            for setting_key, setting_value in new_settings.items():
+                if setting_key in old_settings:
+                    if old_settings[setting_key] != setting_value:
+                        settings_to_remove.append(old_settings[setting_key])
+                        settings_to_apply.append(setting_value)
+                else:
+                    settings_to_apply.append(setting_value)
+            for setting_key, setting_value in old_settings.items():
+                if setting_key not in new_settings:
+                    settings_to_remove.append(setting_value)
+            if settings_to_remove:
+                self.remove_formatting(settings_to_remove, key)
+            if settings_to_apply:
+                self.apply_formatting(settings_to_apply, key)
+
+    def simplify(self):
+        '''Attempts to simplify formatting by re-parsing the ANSI formatting data'''
+        self.set_ansi_str(self.__str__())
 
     def _shift_settings_idx(self, num:int, keep_origin:bool):
         '''
@@ -459,28 +617,40 @@ class AnsiString(collections.UserString):
         Parameters:
             string_format - the string format to apply
         '''
-        match = re.search(r'^(.?)<([0-9]*)$', string_format)
+        match = re.search(r'^(.?)([+-]?)<([0-9]*)$', string_format)
         if match:
             # Left justify
-            num = match.group(2)
+            num = match.group(3)
             if num:
-                self.ljust(int(num), match.group(1) or ' ', inplace=True)
+                self.ljust(
+                    int(num),
+                    match.group(1) or ' ',
+                    inplace=True,
+                    extend_formatting=(not match.group(2) or match.group(2) == '+'))
             return
 
-        match = re.search(r'^(.?)>([0-9]*)$', string_format)
+        match = re.search(r'^(.?)([+-]?)>([0-9]*)$', string_format)
         if match:
             # Right justify
-            num = match.group(2)
+            num = match.group(3)
             if num:
-                self.rjust(int(num), match.group(1) or ' ', inplace=True)
+                self.rjust(
+                    int(num),
+                    match.group(1) or ' ',
+                    inplace=True,
+                    extend_formatting=(not match.group(2) or match.group(2) == '+'))
             return
 
-        match = re.search(r'^(.?)\^([0-9]*)$', string_format)
+        match = re.search(r'^(.?)([+-]?)\^([0-9]*)$', string_format)
         if match:
             # Center
-            num = match.group(2)
+            num = match.group(3)
             if num:
-                self.center(int(num), match.group(1) or ' ', inplace=True)
+                self.center(
+                    int(num),
+                    match.group(1) or ' ',
+                    inplace=True,
+                    extend_formatting=(not match.group(2) or match.group(2) == '+'))
             return
 
         match = re.search(r'^[<>\^]?[+-]?[0-9]*$', string_format)
@@ -541,7 +711,7 @@ class AnsiString(collections.UserString):
                 # need to reset before applying current settings
                 settings_to_apply = [str(AnsiParam.RESET.value)] + settings_to_apply
             # Apply these settings
-            out_str += ansi_escape_format.format(ansi_sep.join(settings_to_apply))
+            out_str += ansi_graphic_rendition_format.format(ansi_sep.join(settings_to_apply))
             # Save this flag in case this is the last loop
             clear_needed = bool(current_settings)
 
@@ -586,7 +756,7 @@ class AnsiString(collections.UserString):
         obj.data = obj.data.casefold()
         return obj
 
-    def center(self, width:int, fillchar:str=' ', inplace:bool=False) -> 'AnsiString':
+    def center(self, width:int, fillchar:str=' ', inplace:bool=False, extend_formatting:bool=True) -> 'AnsiString':
         '''
         Center justification.
         Parameters:
@@ -609,15 +779,16 @@ class AnsiString(collections.UserString):
             left_spaces = math.floor((num) / 2)
             right_spaces = num - left_spaces
             obj.data = fillchar * left_spaces + obj.data + fillchar * right_spaces
-            # Move the removal settings from previous end to new end (formats the right fillchars with same as last char)
-            if old_len in obj._fmts:
-                obj._fmts[len(obj.data)] = obj._fmts.pop(old_len)
-            # Shift all indices except for the origin (formats the left fillchars with same as first char)
-            obj._shift_settings_idx(left_spaces, True)
+            if extend_formatting:
+                # Move the removal settings from previous end to new end (formats the right fillchars with same as last char)
+                if old_len in obj._fmts:
+                    obj._fmts[len(obj.data)] = obj._fmts.pop(old_len)
+                # Shift all indices except for the origin (formats the left fillchars with same as first char)
+                obj._shift_settings_idx(left_spaces, True)
 
         return obj
 
-    def ljust(self, width:int, fillchar:str=' ', inplace:bool=False) -> 'AnsiString':
+    def ljust(self, width:int, fillchar:str=' ', inplace:bool=False, extend_formatting:bool=True) -> 'AnsiString':
         '''
         Left justification.
         Parameters:
@@ -638,13 +809,14 @@ class AnsiString(collections.UserString):
         num = width - old_len
         if num > 0:
             obj.data += fillchar * num
-            # Move the removal settings from previous end to new end (formats the right fillchars with same as last char)
-            if old_len in obj._fmts:
-                obj._fmts[len(obj.data)] = obj._fmts.pop(old_len)
+            if extend_formatting:
+                # Move the removal settings from previous end to new end (formats the right fillchars with same as last char)
+                if old_len in obj._fmts:
+                    obj._fmts[len(obj.data)] = obj._fmts.pop(old_len)
 
         return obj
 
-    def rjust(self, width:int, fillchar:str=' ', inplace:bool=False) -> 'AnsiString':
+    def rjust(self, width:int, fillchar:str=' ', inplace:bool=False, extend_formatting:bool=True) -> 'AnsiString':
         '''
         Right justification.
         Parameters:
@@ -665,8 +837,9 @@ class AnsiString(collections.UserString):
         num = width - old_len
         if num > 0:
             obj.data = fillchar * num + obj.data
-            # Shift all indices except for the origin (formats the left fillchars with same as first char)
-            obj._shift_settings_idx(num, True)
+            if extend_formatting:
+                # Shift all indices except for the origin (formats the left fillchars with same as first char)
+                obj._shift_settings_idx(num, True)
 
         return obj
 
@@ -766,7 +939,7 @@ class AnsiString(collections.UserString):
 
     @staticmethod
     def join(*args:Union[str,'AnsiString','AnsiStr']) -> 'AnsiString':
-        ''' Joins strings and AnsiStrings into a single AnsiString object '''
+        ''' Joins strings and GraphicStrings into a single AnsiString object '''
         if not args:
             return AnsiString()
         args = list(args)
@@ -1397,13 +1570,8 @@ class _AnsiSettingPoint:
             for format in formats:
                 ansi_fmt_enum = None
                 try:
-                    ansi_fmt_enum = AnsiFormat[format.upper()]
+                    ansi_fmt_enum = AnsiFormat[format.upper().replace(' ', '_').replace('-', '_')]
                 except KeyError:
-                    pass
-                else:
-                    format_settings.append(ansi_fmt_enum.setting)
-
-                if ansi_fmt_enum is None:
                     rgb_format = __class__._parse_rgb_string(format)
                     if not rgb_format:
                         try:
@@ -1418,6 +1586,9 @@ class _AnsiSettingPoint:
                             format_settings.append(__class__._scrub_ansi_format_int(int_value))
                     else:
                         format_settings.append(rgb_format)
+                else:
+                    format_settings.append(ansi_fmt_enum.setting)
+
             return format_settings
 
     @staticmethod
@@ -1686,7 +1857,7 @@ class AnsiStr(str):
 
     def __iter__(self) -> 'AnsiStr':
         ''' Iterates over each character of this AnsiStr '''
-        return iter(_AnsiStrCharIterator(self))
+        return iter(_GraphicStrCharIterator(self))
 
     def center(self, width:int, fillchar:str=' ') -> 'AnsiStr':
         '''
@@ -1740,7 +1911,7 @@ class AnsiStr(str):
 
     @staticmethod
     def join(*args:Union[str,'AnsiString','AnsiStr']) -> 'AnsiStr':
-        ''' Joins strings and AnsiStrings into a single AnsiStr object '''
+        ''' Joins strings and GraphicStrings into a single AnsiStr object '''
         return AnsiStr(AnsiString.join(*args))
 
     def lower(self) -> 'AnsiStr':
@@ -2133,7 +2304,7 @@ class AnsiStr(str):
         cpy.zfill(width, inplace=True)
         return AnsiStr(cpy)
 
-class _AnsiStrCharIterator:
+class _GraphicStrCharIterator:
     '''
     Internally-used class which helps iterate over characters
     '''

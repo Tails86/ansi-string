@@ -45,6 +45,11 @@ class CliTests(unittest.TestCase):
         s = AnsiString('No format')
         self.assertEqual(str(s), 'No format')
 
+    def test_from_ansi_string(self):
+        s = AnsiString('\x1b[32mabc\x1b[m')
+        self.assertEqual(str(s), '\x1b[32mabc\x1b[m')
+        self.assertEqual(s.base_str, 'abc')
+
     def test_using_AnsiFormat(self):
         s = AnsiString('This is bold', AnsiFormat.BOLD)
         self.assertEqual(str(s), '\x1b[1mThis is bold\x1b[m')
@@ -851,6 +856,12 @@ class CliTests(unittest.TestCase):
     def test_join_first_arg_invalid_type(self):
         with self.assertRaises(TypeError):
             AnsiString.join(1)
+
+    def test_simplify(self):
+        s = AnsiString('abc', 'green')
+        s.apply_formatting('red')
+        s.simplify()
+        self.assertEqual(str(s), '\x1b[31mabc\x1b[m')
 
 if __name__ == '__main__':
     unittest.main()

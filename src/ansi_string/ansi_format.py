@@ -1,13 +1,19 @@
 from enum import Enum, auto as enum_auto
 from typing import Any, Union, List, Dict, Tuple
-from .ansi_param import AnsiParam
+from .ansi_param import AnsiParam, AnsiParamEffect
 
 # The separator string used in an ANSI control sequence
 ansi_sep = ';'
+# The ansi escape character
+ansi_escape = '\x1b'
+# The start of an ANSI control sequence
+ansi_control_sequence_introducer = ansi_escape + '['
+# The last character of the ANSI control sequence
+ansi_graphic_rendition_code_end = 'm'
 # The escape sequence that needs to be formatted with command str
-ansi_escape_format = '\x1b[{}m'
+ansi_graphic_rendition_format = ansi_control_sequence_introducer + '{}' + ansi_graphic_rendition_code_end
 # The escape sequence which will clear all previous formatting (empty command is same as 0)
-ansi_escape_clear = ansi_escape_format.format('')
+ansi_escape_clear = ansi_graphic_rendition_format.format('')
 
 class AnsiSetting:
     '''
@@ -33,6 +39,48 @@ class AnsiSetting:
 
     def __str__(self) -> str:
         return self._str
+
+    def to_list(self) -> List[Union[int, str]]:
+        '''
+        Returns a list of integers and strings. If a code is not a valid integer, it will be set in the list as string.
+        '''
+        val_list = []
+        for val in self._str.split(ansi_sep):
+            val = val.strip()
+            try:
+                val_int = int(val)
+            except ValueError:
+                val_list.append(val)
+            else:
+                val_list.append(val_int)
+        return val_list
+
+    def get_initial_param(self) -> AnsiParam:
+        '''
+        Returns the first parameter of this set which should define its function. This will return None if first value
+        in the set is not valid or the set is empty.
+        '''
+        val = self._str.split(ansi_sep, 1)
+        if not val:
+            return None
+
+        try:
+            return AnsiParam(int(val[0]))
+        except ValueError:
+            return None
+
+    def to_effect(self) -> AnsiParamEffect:
+        '''
+        Returns the effect of this setting based on the first code value of the set. This depends on the AnsiSetting
+        to have ben setup correctly, so the result is not guaranteed to be accurate.
+        '''
+        param = self.get_initial_param()
+
+        if param is None:
+            return None
+
+        return param.effect_type
+
 
 class ColorComponentType(Enum):
     FOREGROUND=enum_auto(),
