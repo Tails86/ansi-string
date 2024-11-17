@@ -23,7 +23,7 @@
 import re
 import math
 from typing import Any, Union, List, Dict, Tuple
-from .ansi_param import AnsiParam, AnsiParamEffect, AnsiParamEffectFn
+from .ansi_param import AnsiParam, AnsiParamEffect, AnsiParamEffectFn, EFFECT_CLEAR_DICT
 from .ansi_format import (
     AnsiFormat, AnsiSetting, ColorComponentType, ColourComponentType, ansi_sep, ansi_escape,
     ansi_control_sequence_introducer, ansi_graphic_rendition_format, ansi_escape_clear,
@@ -134,11 +134,14 @@ class ParsedAnsiControlSequenceString:
     def unformatted_str(self) -> str:
         return self._s
 
-def _parse_graphic_sequence(sequence:str) -> List[AnsiSetting]:
+def _parse_graphic_sequence(sequence:Union[str,List[Union[int,str]]], add_dangling:bool=False) -> List[AnsiSetting]:
     if not sequence:
         return [AnsiSetting(AnsiParam.RESET.value)]
     output = []
-    items = [item.strip() for item in sequence.split(ansi_sep)]
+    if isinstance(sequence, str):
+        items = [item.strip() for item in sequence.split(ansi_sep)]
+    else:
+        items = sequence
     idx = 0
     left_in_set = 0
     current_set = []
@@ -156,9 +159,9 @@ def _parse_graphic_sequence(sequence:str) -> List[AnsiSetting]:
                     int_value == AnsiParam.SET_UNDERLINE_COLOR.value
                 ):
                     if idx + 1 < len(items):
-                        if items[idx + 1] == "5":
+                        if str(items[idx + 1]) == "5":
                             left_in_set = 3
-                        elif items[ idx + 1] == "2":
+                        elif str(items[ idx + 1]) == "2":
                             left_in_set = 5
             if int_value:
                 current_set.append(int_value)
@@ -169,6 +172,9 @@ def _parse_graphic_sequence(sequence:str) -> List[AnsiSetting]:
                 output.append(AnsiSetting(current_set))
                 current_set = []
         idx += 1
+    if current_set and add_dangling:
+        # Add dangling as non-parsable setting
+        output.append(AnsiSetting(current_set, False))
     return output
 
 def _settings_to_dict(
@@ -187,6 +193,7 @@ def _settings_to_dict(
                 if effect in settings_dict:
                     del settings_dict[effect]
             else:
+                # AnsiParamEffectFn.RESET_ALL assumed
                 settings_dict = {}
     return settings_dict
 
@@ -234,11 +241,13 @@ class AnsiString:
         '''
         # Key is the string index to make a color change at
         self._fmts:Dict[int,'_AnsiSettingPoint'] = {}
+        self._optimize = False
         self._s = ''
 
         if isinstance(s, AnsiString):
             for k, v in s._fmts.items():
                 self._fmts[k] = _AnsiSettingPoint(list(v.add), list(v.rem))
+            self._optimize = s._optimize
             self._s = s._s
         elif isinstance(s, str):
             self.set_ansi_str(str(s))
@@ -314,8 +323,23 @@ class AnsiString:
                 self.apply_formatting(settings_to_apply, key)
 
     def simplify(self):
-        '''Attempts to simplify formatting by re-parsing the ANSI formatting data'''
+        '''
+        Attempts to simplify formatting by re-parsing the ANSI formatting data. This will throw out any data internally
+        determined as invalid and remove redundant settings.
+        '''
         self.set_ansi_str(str(self))
+
+    def enable_output_optimization(self):
+        '''
+        This sets the output-optimization flag to True. Whenever the output string is generated, all formatting data
+        will be parsed, throwing out any data internally determined as invalid, and the most efficient output will be
+        generated based on all known parameters.
+        '''
+        self._optimize = True
+
+    def disable_output_optimization(self):
+        ''' This sets the output-optimization flag to False. '''
+        self._optimize = False
 
     def _shift_settings_idx(self, num:int, keep_origin:bool):
         '''
@@ -356,6 +380,10 @@ class AnsiString:
             return
 
         ansi_settings = _AnsiSettingPoint._scrub_ansi_settings(settings, make_unique=True)
+
+        if not ansi_settings:
+            # Empty set - usually just a string of semicolons was received
+            return
 
         # Apply settings
         if start not in self._fmts:
@@ -712,8 +740,18 @@ class AnsiString:
 
         raise ValueError('Invalid format specifier')
 
+    def is_optimizable(self) -> bool:
+        '''
+        Returns True iff this object was not created with any verbatim setting strings that starts with "["
+        '''
+        # Check if optimization is possible
+        for fmt in self._fmts.values():
+            for setting in fmt.add:
+                if not setting.parsable:
+                    return False
+        return True
 
-    def __format__(self, __format_spec:str) -> str:
+    def to_str(self, __format_spec:str=None, optimize:bool=None) -> str:
         '''
         Returns an ANSI format string with both internal and given formatting spec set.
         Parameters:
@@ -723,10 +761,14 @@ class AnsiString:
                             ex: ">10:bold;red" to make output right justify with width of 10, bold and red formatting
                             No formatting should be applied as part of the justification, add a '-' after the fillchar.
                             ex: " ->10:bold;red" to not not apply formatting to justification characters
+            optimize - when set, overrides the internal output-optimization flag for this call
         '''
         if not __format_spec and not self._fmts:
             # No formatting
             return self._s
+
+        if optimize is None:
+            optimize = self._optimize
 
         if __format_spec:
             # Make a copy
@@ -749,9 +791,14 @@ class AnsiString:
             # No changes - just copy the reference
             obj = self
 
+        if optimize:
+            # Check if optimization is possible
+            optimize = obj.is_optimizable()
+
         out_str = ''
         last_idx = 0
         clear_needed = False
+        current_settings_dict:Dict[AnsiParamEffect, AnsiSetting] = {}
         for idx, settings, current_settings in _AnsiSettingsIterator(obj._fmts):
             if idx >= len(obj):
                 # Invalid
@@ -765,8 +812,23 @@ class AnsiString:
                 # Settings were removed and there are settings to be applied -
                 # need to reset before applying current settings
                 settings_to_apply = [str(AnsiParam.RESET.value)] + settings_to_apply
+            codes_str = ansi_sep.join(settings_to_apply)
+            if optimize:
+                old_settings_dict = current_settings_dict
+                new_settings_dict = _settings_to_dict(current_settings, {})
+                current_settings_dict = new_settings_dict
+                settings_to_apply = []
+                for key in old_settings_dict.keys():
+                    if key not in new_settings_dict:
+                        # Add the param that will clear this setting
+                        settings_to_apply.append(str(EFFECT_CLEAR_DICT[key].value))
+                settings_to_apply += [str(value) for key, value in new_settings_dict.items() if key not in old_settings_dict]
+                optimized_codes_str = ansi_sep.join(settings_to_apply)
+                # This check is necessary because sometimes the optimization will actually create a longer string
+                if len(optimized_codes_str) < len(codes_str):
+                    codes_str = optimized_codes_str
             # Apply these settings
-            out_str += ansi_graphic_rendition_format.format(ansi_sep.join(settings_to_apply))
+            out_str += ansi_graphic_rendition_format.format(codes_str)
             # Save this flag in case this is the last loop
             clear_needed = bool(current_settings)
 
@@ -777,6 +839,19 @@ class AnsiString:
             out_str += ansi_escape_clear
 
         return out_str
+
+    def __format__(self, __format_spec:str) -> str:
+        '''
+        Returns an ANSI format string with both internal and given formatting spec set.
+        Parameters:
+            __format_spec - must be in the format "[string_format[:ansi_format]]" where string_format is an extension of
+                            the standard string format specifier and ansi_format contains 0 or more ansi directives
+                            separated by semicolons (;)
+                            ex: ">10:bold;red" to make output right justify with width of 10, bold and red formatting
+                            No formatting should be applied as part of the justification, add a '-' after the fillchar.
+                            ex: " ->10:bold;red" to not not apply formatting to justification characters
+        '''
+        return self.to_str(__format_spec)
 
     def __iter__(self) -> 'AnsiString':
         ''' Iterates over each character of this AnsiString '''
@@ -1588,7 +1663,7 @@ class _AnsiSettingPoint:
                 b = int(match.group(7), 16 if match.group(6) else 10)
             except ValueError:
                 raise ValueError('Invalid rgb value(s)')
-            # Get RGB format and remove the leading '['
+            # Get RGB format
             return AnsiFormat.rgb(r, g, b, component_dict.get(match.group(1), ColorComponentType.FOREGROUND))
 
         # rgb(), fg_rgb(), bg_rgb(), or ul_rgb() with 1 value as decimal or hex
@@ -1598,24 +1673,24 @@ class _AnsiSettingPoint:
                 rgb = int(match.group(3), 16 if match.group(2) else 10)
             except ValueError:
                 raise ValueError('Invalid rgb value')
-            # Get RGB format and remove the leading '['
+            # Get RGB format
             return AnsiFormat.rgb(rgb, component=component_dict.get(match.group(1), ColorComponentType.FOREGROUND))
         return None
 
     @staticmethod
-    def _scrub_ansi_format_int(ansi_format:int) -> AnsiSetting:
+    def _scrub_ansi_format_int(ansi_format:int) -> int:
         if ansi_format < 0:
             raise ValueError(f'Invalid value [{ansi_format}]; must be greater than or equal to 0')
-        return AnsiSetting(ansi_format)
+        return ansi_format
 
     @staticmethod
-    def _scrub_ansi_format_string(ansi_format:str) -> List[AnsiSetting]:
+    def _scrub_ansi_format_string(ansi_format:str) -> List[Union[AnsiSetting,int]]:
         if not ansi_format:
             # Empty string - no formats
             return []
         elif ansi_format.startswith("["):
             # Use the rest of the string as-is for settings
-            return [AnsiSetting(ansi_format[1:])]
+            return [AnsiSetting(ansi_format[1:], parsable=False)]
         else:
             # The format string contains names within AnsiFormat or integers, separated by semicolon
             formats = ansi_format.split(ansi_sep)
@@ -1627,15 +1702,16 @@ class _AnsiSettingPoint:
                 except KeyError:
                     rgb_format = __class__._parse_rgb_string(format)
                     if not rgb_format:
-                        try:
-                            int_value = int(format)
-                        except ValueError:
-                            raise ValueError(
-                                'AnsiString.__format__ failed to parse format ({}); invalid name: {}'
-                                .format(ansi_format, format)
-                            )
-                        else:
-                            # Value is an integer - use the format verbatim
+                        # Just ignore empty string
+                        if format != '':
+                            try:
+                                int_value = int(format)
+                            except ValueError:
+                                raise ValueError(
+                                    'AnsiString.__format__ failed to parse format ({}); invalid name: {}'
+                                    .format(ansi_format, format)
+                                )
+                            # Value is an integer - add this to the list for later parsing
                             format_settings.append(__class__._scrub_ansi_format_int(int_value))
                     else:
                         format_settings.append(rgb_format)
@@ -1664,6 +1740,27 @@ class _AnsiSettingPoint:
                 settings_out.append(__class__._scrub_ansi_format_int(setting))
             elif hasattr(setting, "setting"):
                 settings_out.append(setting.setting)
+            else:
+                raise TypeError(f'setting is invalid type: {type(setting)}')
+
+        # settings_out is not a list of AnsiSettings and integers - parse for integers and combine int AnsiSetting
+        current_ints = []
+        idx = 0
+        while idx < len(settings_out):
+            if isinstance(settings_out[idx], int):
+                current_ints.append(settings_out[idx])
+                del settings_out[idx]
+            else:
+                if current_ints:
+                    new_seq = _parse_graphic_sequence(current_ints, True)
+                    settings_out[idx:idx] = new_seq
+                    idx += len(new_seq)
+                    current_ints = []
+                else:
+                    idx += 1
+        if current_ints:
+            settings_out += _parse_graphic_sequence(current_ints, True)
+
         return settings_out
 
     def insert_settings(self, apply:bool, settings:Union[List[AnsiSetting], AnsiSetting], topmost:bool=True):
@@ -1727,6 +1824,7 @@ class _AnsiCharIterator:
 class AnsiStr(str):
     '''
     Immutable version of AnsiString. The advantage of this object is that isinstance(AnsiStr(), str) returns True.
+    Simplification and optimization of escape codes are always done automatically by this type.
     '''
     def __new__(
         cls,
@@ -1747,6 +1845,7 @@ class AnsiStr(str):
         else:
             raise TypeError('Invalid type for s')
         ansi_string.simplify()
+        ansi_string.enable_output_optimization()
         instance = super().__new__(cls, str(ansi_string))
         instance._s = ansi_string.base_str
         return instance
@@ -1782,16 +1881,31 @@ class AnsiStr(str):
         # Can't add in place - always return a new instance
         return (self + value)
 
+    def to_str(self, __format_spec:str=None) -> str:
+        '''
+        Returns an ANSI format string with both internal and given formatting spec set.
+        Parameters:
+            __format_spec - must be in the format "[string_format[:ansi_format]]" where string_format is an extension of
+                            the standard string format specifier and ansi_format contains 0 or more ansi directives
+                            separated by semicolons (;)
+                            ex: ">10:bold;red" to make output right justify with width of 10, bold and red formatting
+                            No formatting should be applied as part of the justification, add a '-' after the fillchar.
+                            ex: " ->10:bold;red" to not not apply formatting to justification characters
+        '''
+        return AnsiString(str(self)).to_str(__format_spec, True)
+
     def __format__(self, __format_spec:str) -> str:
         '''
         Returns an ANSI format string with both internal and given formatting spec set.
         Parameters:
-            __format_spec - must be in the format "[string_format][:ansi_format]" where string_format is the standard
-                            string format specifier and ansi_format contains 0 or more ansi directives separated by
-                            semicolons (;)
+            __format_spec - must be in the format "[string_format[:ansi_format]]" where string_format is an extension of
+                            the standard string format specifier and ansi_format contains 0 or more ansi directives
+                            separated by semicolons (;)
                             ex: ">10:bold;red" to make output right justify with width of 10, bold and red formatting
+                            No formatting should be applied as part of the justification, add a '-' after the fillchar.
+                            ex: " ->10:bold;red" to not not apply formatting to justification characters
         '''
-        return AnsiString(str(self)).__format__(__format_spec)
+        return self.to_str(__format_spec)
 
     def __getitem__(self, val:Union[int, slice]) -> 'AnsiStr':
         '''

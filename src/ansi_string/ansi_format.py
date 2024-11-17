@@ -20,7 +20,7 @@ class AnsiSetting:
     This class is used to wrap ANSI values which constitute as a single setting. Giving an AnsiSetting to the
     constructor of AnsiString has a similar effect as providing a format string which starts with "[".
     '''
-    def __init__(self, setting:Union[str, int, List[int], Tuple[int], 'AnsiSetting']):
+    def __init__(self, setting:Union[str, int, List[int], Tuple[int], 'AnsiSetting'], parsable:bool=True):
         if isinstance(setting, list) or isinstance(setting, tuple):
             setting = ansi_sep.join([str(s) for s in setting])
         elif isinstance(setting, int) or isinstance(setting, AnsiSetting):
@@ -28,7 +28,11 @@ class AnsiSetting:
         elif not isinstance(setting, str):
             raise TypeError('Unsupported type for setting: {}'.format(type(setting)))
 
+        if not setting:
+            raise ValueError('Setting may not be None or empty string')
+
         self._str = setting
+        self._parsable = parsable
 
     def __eq__(self, value) -> bool:
         if isinstance(value, str):
@@ -39,6 +43,10 @@ class AnsiSetting:
 
     def __str__(self) -> str:
         return self._str
+
+    @property
+    def parsable(self) -> bool:
+        return self._parsable
 
     def to_list(self) -> List[Union[int, str]]:
         '''
@@ -71,8 +79,8 @@ class AnsiSetting:
 
     def to_effect(self) -> AnsiParamEffect:
         '''
-        Returns the effect of this setting based on the first code value of the set. This depends on the AnsiSetting
-        to have ben setup correctly, so the result is not guaranteed to be accurate.
+        Returns the effect of this setting based on the first code value of the set. This is only guaranteed to be valid
+        if self.parsable==True.
         '''
         param = self.get_initial_param()
 

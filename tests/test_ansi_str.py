@@ -73,7 +73,7 @@ class AnsiStrTests(unittest.TestCase):
         s = s.apply_formatting([AnsiFormat.FG_ORANGE, AnsiFormat.ITALIC], 21, 35)
         self.assertEqual(
             str(s),
-            'This \x1b[1mstring\x1b[m contains \x1b[44;38;5;214;3mmultiple\x1b[0;38;5;214;3m color\x1b[m settings '
+            'This \x1b[1mstring\x1b[m contains \x1b[44;38;5;214;3mmultiple\x1b[49m color\x1b[m settings '
             'across different ranges'
         )
 
@@ -360,7 +360,7 @@ class AnsiStrTests(unittest.TestCase):
         b = b.apply_formatting('red', end=-2)
         b = b.apply_formatting('bold', end=-1)
         c = a + b
-        self.assertEqual(str(c), '\x1b[31;1mabcx\x1b[0;1my\x1b[mz')
+        self.assertEqual(str(c), '\x1b[31;1mabcx\x1b[39my\x1b[mz')
 
     def test_replace(self):
         s=AnsiStr('This string will be formatted italic and purple', ['purple', 'italic'])
@@ -613,17 +613,17 @@ class AnsiStrTests(unittest.TestCase):
     def test_remove_settings(self):
         s = AnsiStr('Hello Hello', 'bold', AnsiFormat.RED)
         s = s.remove_formatting(AnsiFormat.BOLD, 2, 4)
-        self.assertEqual(str(s), '\x1b[1;31mHe\x1b[0;31mll\x1b[31;1mo Hello\x1b[m')
+        self.assertEqual(str(s), '\x1b[1;31mHe\x1b[22mll\x1b[1mo Hello\x1b[m')
 
     def test_remove_settings_end(self):
         s = AnsiStr('Hello Hello', 'bold', AnsiFormat.RED)
         s = s.remove_formatting(AnsiFormat.BOLD, 2)
-        self.assertEqual(str(s), '\x1b[1;31mHe\x1b[0;31mllo Hello\x1b[m')
+        self.assertEqual(str(s), '\x1b[1;31mHe\x1b[22mllo Hello\x1b[m')
 
     def test_remove_settings_begin(self):
         s = AnsiStr('Hello Hello', 'bold', AnsiFormat.RED)
         s = s.remove_formatting(AnsiFormat.BOLD, end=2)
-        self.assertEqual(str(s), '\x1b[31mHe\x1b[31;1mllo Hello\x1b[m')
+        self.assertEqual(str(s), '\x1b[31mHe\x1b[1mllo Hello\x1b[m')
 
     def test_remove_settings_entire_range(self):
         s = AnsiStr('Hello Hello', 'bold', AnsiFormat.RED)
@@ -659,7 +659,7 @@ class AnsiStrTests(unittest.TestCase):
         s = s.apply_formatting(AnsiFormat.BOLD, start=-1)
         s = s.apply_formatting(AnsiFormat.RED, 0, 3)
         s = s.remove_formatting(start=2)
-        self.assertEqual(str(s), '\x1b[31mH\x1b[31;1me\x1b[mllo Hello')
+        self.assertEqual(str(s), '\x1b[31mH\x1b[1me\x1b[mllo Hello')
 
     def test_unformat_matching(self):
         s = AnsiStr('Here is a string that I will unformat matching', AnsiFormat.CYAN, AnsiFormat.BOLD)
@@ -667,7 +667,7 @@ class AnsiStrTests(unittest.TestCase):
         s = s.unformat_matching('ing', 'cyan', AnsiFormat.BG_PINK)
         self.assertEqual(
             str(s),
-            '\x1b[36;1mHere is a str\x1b[0;1ming\x1b[1;36m that I will unformat \x1b[1;36;48;2;255;192;203mmatch\x1b[0;1ming\x1b[m'
+            '\x1b[36;1mHere is a str\x1b[39ming\x1b[36m that I will unformat \x1b[48;2;255;192;203mmatch\x1b[0;1ming\x1b[m'
         )
 
     def test_unformat_matching_w_count1(self):
@@ -676,7 +676,7 @@ class AnsiStrTests(unittest.TestCase):
         s = s.unformat_matching('ing', 'cyan', AnsiFormat.BG_PINK, count=1)
         self.assertEqual(
             str(s),
-            '\x1b[36;1mHere is a str\x1b[0;1ming\x1b[1;36m that I will unformat \x1b[1;36;48;2;255;192;203mmatching\x1b[m'
+            '\x1b[36;1mHere is a str\x1b[39ming\x1b[36m that I will unformat \x1b[48;2;255;192;203mmatching\x1b[m'
         )
 
 

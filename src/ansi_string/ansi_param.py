@@ -210,3 +210,22 @@ class AnsiParam(IntEnum):
 # This dictionary has no use after AnsiParam is fully defined
 # Lookup can be achieved through AnsiParam(<int>).effect_type
 del _ANSI_CODE_TO_EFFECT
+
+# Links an effect type with the parameter that will clear that effect
+EFFECT_CLEAR_DICT:Dict[AnsiParamEffect, AnsiParam] = {
+    AnsiParamEffect.RESET: AnsiParam.RESET,
+    AnsiParamEffect.BOLDNESS: AnsiParam.NO_BOLD_FAINT,
+    AnsiParamEffect.ITALICS: AnsiParam.NO_ITALIC,
+    AnsiParamEffect.UNDERLINE: AnsiParam.NO_UNDERLINE,
+    AnsiParamEffect.OVERLINE: AnsiParam.NO_OVERLINED,
+    AnsiParamEffect.BLINKING: AnsiParam.NO_BLINK,
+    AnsiParamEffect.SWAP_BG_FG: AnsiParam.NO_SWAP_BG_FG,
+    AnsiParamEffect.VISIBILITY: AnsiParam.NO_HIDE,
+    AnsiParamEffect.CROSSED_OUT: AnsiParam.NO_CROSSED_OUT,
+    AnsiParamEffect.FONT_TYPE: AnsiParam.DEFAULT_FONT,
+    AnsiParamEffect.SPACING: AnsiParam.NO_PROPORTIONAL_SPACING,
+    AnsiParamEffect.BOXING: AnsiParam.NO_FRAMED_ENCIRCLED,
+    AnsiParamEffect.FG_COLOR: AnsiParam.FG_DEFAULT,
+    AnsiParamEffect.BG_COLOR: AnsiParam.BG_DEFAULT,
+    AnsiParamEffect.UL_COLOR: AnsiParam.DEFAULT_UNDERLINE_COLOR
+}

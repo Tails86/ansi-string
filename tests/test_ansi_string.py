@@ -50,6 +50,10 @@ class AnsiStringTests(unittest.TestCase):
         self.assertEqual(str(s), '\x1b[32mabc\x1b[m')
         self.assertEqual(s.base_str, 'abc')
 
+    def test_invalid_string_format(self):
+        s = AnsiString('This is not formatted but is still parsed', ';;;')
+        self.assertEqual(str(s), 'This is not formatted but is still parsed')
+
     def test_using_AnsiFormat(self):
         s = AnsiString('This is bold', AnsiFormat.BOLD)
         self.assertEqual(str(s), '\x1b[1mThis is bold\x1b[m')
@@ -59,12 +63,16 @@ class AnsiStringTests(unittest.TestCase):
         self.assertEqual(str(s), '\x1b[1;31mThis is bold and red\x1b[m')
 
     def test_using_list_of_various(self):
-        s = AnsiString('Lots of formatting!', ['[1', AnsiFormat.UL_RED, 'rgb(0x12A03F);bg_white'])
-        self.assertEqual(str(s), '\x1b[1;4;58;5;9;38;2;18;160;63;47mLots of formatting!\x1b[m')
+        s = AnsiString('Lots of formatting!', ['[1', AnsiFormat.UL_RED, 48, 2, 175, 95, 95, 'rgb(0x12A03F);ul_white'])
+        self.assertEqual(str(s), '\x1b[1;4;58;5;9;48;2;175;95;95;38;2;18;160;63;4;58;5;15mLots of formatting!\x1b[m')
 
     def test_custom_formatting(self):
         s = AnsiString('This string contains custom formatting', '[38;2;175;95;95')
         self.assertEqual(str(s), '\x1b[38;2;175;95;95mThis string contains custom formatting\x1b[m')
+
+    def test_int_formatting(self):
+        s = AnsiString('This string contains int formatting', [38, 2, 175, 95, 95])
+        self.assertEqual(str(s), '\x1b[38;2;175;95;95mThis string contains int formatting\x1b[m')
 
     def test_ranges(self):
         s = AnsiString('This string contains multiple color settings across different ranges')
