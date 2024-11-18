@@ -253,7 +253,7 @@ The AnsiString and AnsiStr classes contains the following `__init__` method.
     def __init__(self, s:str='', *setting_or_settings:Union[List[str], str, List[int], int, List[AnsiFormat], AnsiFormat]): ...
 ```
 
-The first argument, `s`, is a string to be formatted. The next 0 to N arguments are formatting setting directives that can be applied to the entire string. These arguments can be in the form of any of the following.
+The first argument, `s`, is a string to be formatted. If this string contains ANSI directives, they will be parsed and added into the internal format dictionary. The next 0 to N arguments are formatting setting directives that can be applied to the entire string. These arguments can be in the form of any of the following.
 
 - An AnsiFormat enum (ex: `AnsiFormat.BOLD`)
 - The result of calling `AnsiFormat.rgb()`, `AnsiFormat.fg_rgb()`, `AnsiFormat.bg_rgb()`,

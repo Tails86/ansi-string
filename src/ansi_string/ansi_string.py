@@ -275,7 +275,7 @@ class AnsiString:
         '''
         Creates an AnsiString
         Parameters:
-        s - The underlying string or an AnsiString to copy from
+        s - The underlying string or an AnsiString to copy from; incoming strings will be parsed for ANSI directives
         settings - setting(s) in any of the listed formats below
             - An AnsiFormat enum (ex: `AnsiFormat.BOLD`)
             - The result of calling `AnsiFormat.rgb()`, `AnsiFormat.fg_rgb()`, `AnsiFormat.bg_rgb()`,
