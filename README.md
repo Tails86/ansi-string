@@ -122,7 +122,7 @@ Refer to the [AnsiString test file](https://github.com/Tails86/ansi-string/blob/
 
 ### AnsiStr
 
-AnsiStr is an immutable version of AnsiString. The advantage of this object is that isinstance(AnsiStr(), str) returns True. The disadvantages are that all formatting functionality return a new object rather than formatting in-place, and the output is always automatically simplified, so using escape codes outside of the internally-known ones may result in undesired behavior.
+AnsiStr is an immutable version of AnsiString. The advantage of this object is that isinstance(AnsiStr(), str) returns True. The disadvantage is that all formatting functionality return a new object rather than formatting in-place.
 
 #### Example 1
 Code:
@@ -224,10 +224,10 @@ Refer to the [AnsiStr test file](https://github.com/Tails86/ansi-string/blob/mai
 
 ## Usage
 
-To begin, import AnsiString from the ansi_string module.
+To begin, import `AnsiString` and/or `AnsiStr` from the ansi_string module.
 
 ```py
-from ansi_string import en_tty_ansi, AnsiFormat, AnsiString
+from ansi_string import en_tty_ansi, AnsiFormat, AnsiString, AnsiStr
 ```
 
 ### Enabling ANSI Formatting
@@ -254,8 +254,10 @@ The AnsiString and AnsiStr classes contains the following `__init__` method.
 ```
 
 The first argument, `s`, is a string to be formatted. The next 0 to N arguments are formatting setting directives that can be applied to the entire string. These arguments can be in the form of any of the following.
+
 - An AnsiFormat enum (ex: `AnsiFormat.BOLD`)
-- The result of calling `AnsiFormat.rgb()`, `AnsiFormat.fg_rgb()`, `AnsiFormat.bg_rgb()`, `AnsiFormat.ul_rgb()`, or `AnsiFormat.dul_rgb()`
+- The result of calling `AnsiFormat.rgb()`, `AnsiFormat.fg_rgb()`, `AnsiFormat.bg_rgb()`,
+    `AnsiFormat.ul_rgb()`, or `AnsiFormat.dul_rgb()`
 - A string color or formatting name (i.e. any name of the AnsiFormat enum in lower or upper case)
 - An `rgb(...)` function directive as a string (ex: `"rgb(255, 255, 255)"`)
     - `rgb(...)` or `fg_rgb(...)` to adjust text color
@@ -263,14 +265,16 @@ The first argument, `s`, is a string to be formatted. The next 0 to N arguments 
     - `ul_rgb(...)` to enable underline and set the underline color
     - `dul_rgb(...)` to enable double underline and set the underline color
     - Value given may be either a 24-bit integer or 3 x 8-bit integers, separated by commas
-    - Each given value within the parenthesis is treated as hexadecimal if the value starts with "0x", otherwise it is treated as a decimal value
-
-A formatting setting may also be any of the following, but it's not advised to specify settings in any of these ways unless there is a specific reason to do so.
-- An AnsiSetting object
+    - Each given value within the parenthesis is treated as hexadecimal if the value starts with "0x",
+        otherwise it is treated as a decimal value
 - A string containing known ANSI directives (ex: `"01;31"` for BOLD and FG_RED)
-    - The string will normally be parsed into separate settings unless the character "[" is the first character of the string (ex: `"[38;5;214"`)
-    - Never specify the reset directive (0) because this is implicitly handled internally
-- A single ANSI directive as an integer
+    - This string will be parsed, and all invalid values, including RESET (0), will be thrown out
+- Integer values which will be parsed in a similar way to strings
+
+A setting may also be any of the following, but these are not advised because they will be used verbatim,
+and optimization of codes on string output will not occur.
+- An AnsiSetting object
+- A string which starts with the character `"["` plus ANSI directives (ex: `"[38;5;214"`)
 
 Examples:
 
@@ -430,3 +434,29 @@ Many other methods that are found in the `str` class such as `replace()` are ava
 - title
 - upper
 - zfill
+
+## Other Functions
+
+The following functions are provided to perform cursor or clear actions on the terminal.
+
+- cursor_up_str
+- cursor_down_str
+- cursor_forward_str
+- cursor_backward_str
+- cursor_back_str
+- cursor_next_line_str
+- cursor_previous_line_str
+- cursor_horizontal_absolute_str
+- cursor_position_str
+- erase_in_display_str
+- erase_in_line_str
+- scroll_up_str
+- scroll_down_str
+
+### Example
+
+```py
+from ansi_string import cursor_up_str
+# Move cursor up 5 lines
+print(cursor_up_str(5), end='')
+```

@@ -30,48 +30,105 @@ from .ansi_format import (
     ansi_graphic_rendition_code_end
 )
 
-__version__ = '1.1.2'
+__version__ = '1.1.3'
 PACKAGE_NAME = 'ansi-string'
 
 # Constant: all characters considered to be whitespaces - this is used in strip functionality
 WHITESPACE_CHARS = ' \t\n\r\v\f'
 
 def cursor_up_str(n:int=1) -> str:
+    '''
+    Parameters: n - the number of lines to move up.
+    Returns a string which will move the cursor up a number of lines if printed to stdout.
+    '''
     return ansi_control_sequence_introducer + str(n) + 'A'
 
 def cursor_down_str(n:int=1) -> str:
+    '''
+    Parameters: n - the number of lines to move down.
+    Returns a string which will move the cursor down a number of lines if printed to stdout.
+    '''
     return ansi_control_sequence_introducer + str(n) + 'B'
 
 def cursor_forward_str(n:int=1) -> str:
+    '''
+    Parameters: n - the number of lines to move forward.
+    Returns a string which will move the cursor forward a number of lines if printed to stdout.
+    '''
     return ansi_control_sequence_introducer + str(n) + 'C'
 
 def cursor_backward_str(n:int=1) -> str:
+    '''
+    Parameters: n - the number of lines to move backward.
+    Returns a string which will move the cursor backward a number of lines if printed to stdout.
+    '''
     return ansi_control_sequence_introducer + str(n) + 'D'
 
 cursor_back_str = cursor_backward_str
 
 def cursor_next_line_str(n:int=1) -> str:
+    '''
+    Parameters: n - the number of lines to move.
+    Returns a string which will move the cursor a number of lines next if printed to stdout.
+    '''
     return ansi_control_sequence_introducer + str(n) + 'E'
 
 def cursor_previous_line_str(n:int=1) -> str:
+    '''
+    Parameters: n - the number of lines to move.
+    Returns a string which will move the cursor a number of lines previously if printed to stdout.
+    '''
     return ansi_control_sequence_introducer + str(n) + 'F'
 
 def cursor_horizontal_absolute_str(n:int) -> str:
+    '''
+    Parameters: n - the absolute horizontal (X) position to move the cursor to.
+    Returns a string which will move the cursor to a horizontal position if printed to stdout.
+    '''
     return ansi_control_sequence_introducer + str(n) + 'G'
 
 def cursor_position_str(row:int, column:int) -> str:
+    '''
+    Parameters:
+    row - the absolute horizontal (X) position to move the cursor to.
+    column - the absolute vertical (Y) position to move the cursor to.
+    Returns a string which will move the cursor to an absolute position if printed to stdout.
+    '''
     return ansi_control_sequence_introducer + str(row) + ';' + str(column) + 'H'
 
 def erase_in_display_str(n:int) -> str:
+    '''
+    Parameters: n - an integer [0,3] which determines the erase function performed.
+        0: clear from cursor to end of screen
+        1: clear from cursor to beginning of the screen
+        2: clear entire screen
+        3: clear entire screen and delete all lines saved in the scrollback buffer
+    Returns a string which will perform a clear function if printed to stdout.
+    '''
     return ansi_control_sequence_introducer + str(n) + 'J'
 
 def erase_in_line_str(n:int) -> str:
+    '''
+    parameters: n - an integer [0,2] which determines the erase function performed.
+        0: clear from cursor to the end of the line
+        1: clear from cursor to beginning of the line
+        2: clear entire line
+    Returns a string which will perform a clear function if printed to stdout. Cursor position does not change.
+    '''
     return ansi_control_sequence_introducer + str(n) + 'K'
 
 def scroll_up_str(n:int) -> str:
+    '''
+    Parameters: n - number of lines to scroll up.
+    Returns a string which will scroll the whole page up when printed to stdout.
+    '''
     return ansi_control_sequence_introducer + str(n) + 'S'
 
 def scroll_down_str(n:int) -> str:
+    '''
+    Parameters: n - number of lines to scroll down.
+    Returns a string which will scroll the whole page down when printed to stdout.
+    '''
     return ansi_control_sequence_introducer + str(n) + 'T'
 
 class AnsiControlSequence:
@@ -134,7 +191,11 @@ class ParsedAnsiControlSequenceString:
     def unformatted_str(self) -> str:
         return self._s
 
-def _parse_graphic_sequence(sequence:Union[str,List[Union[int,str]]], add_dangling:bool=False) -> List[AnsiSetting]:
+def _parse_graphic_sequence(
+    sequence:Union[str,List[Union[int,str]]],
+    add_dangling:bool=False,
+    allow_reset:bool=True
+) -> List[AnsiSetting]:
     if not sequence:
         return [AnsiSetting(AnsiParam.RESET.value)]
     output = []
@@ -169,7 +230,8 @@ def _parse_graphic_sequence(sequence:Union[str,List[Union[int,str]]], add_dangli
                 current_set.append(items[idx])
             left_in_set -= 1
             if left_in_set <= 0:
-                output.append(AnsiSetting(current_set))
+                if allow_reset or (current_set[0] != '' and current_set[0] != AnsiParam.RESET.value):
+                    output.append(AnsiSetting(current_set))
                 current_set = []
         idx += 1
     if current_set and add_dangling:
@@ -229,28 +291,34 @@ class AnsiString:
                 - Value given may be either a 24-bit integer or 3 x 8-bit integers, separated by commas
                 - Each given value within the parenthesis is treated as hexadecimal if the value starts with "0x",
                   otherwise it is treated as a decimal value
-
-        A setting may also be any of the following, but it's not advised to specify settings these ways unless there is
-        a specific reason to do so.
-            - An AnsiSetting object
             - A string containing known ANSI directives (ex: `"01;31"` for BOLD and FG_RED)
-                - The string will normally be parsed into separate settings unless the character "[" is the first
-                  character of the string (ex: `"[38;5;214"`)
-                - Never specify the reset directive (0) because this is implicitly handled internally
-            - A single ANSI directive as an integer
+                - This string will be parsed, and all invalid values, including RESET (0), will be thrown out
+            - Integer values which will be parsed in a similar way to strings
+
+        A setting may also be any of the following, but these are not advised because they will be used verbatim,
+        and optimization of codes on string output will not occur.
+            - An AnsiSetting object
+            - A string which starts with the character "[" plus ANSI directives (ex: `"[38;5;214"`)
         '''
         # Key is the string index to make a color change at
         self._fmts:Dict[int,'_AnsiSettingPoint'] = {}
         self._s = ''
 
+        from_ansi_string = None
         if isinstance(s, AnsiString):
-            for k, v in s._fmts.items():
-                self._fmts[k] = _AnsiSettingPoint(list(v.add), list(v.rem))
-            self._s = s._s
+            from_ansi_string = s
+        elif isinstance(s, AnsiStr):
+            from_ansi_string = s._s
         elif isinstance(s, str):
             self.set_ansi_str(str(s))
         else:
             raise TypeError('Invalid type for s')
+
+        # Copy from incoming AnsiString if one is found
+        if from_ansi_string:
+            for k, v in from_ansi_string._fmts.items():
+                self._fmts[k] = _AnsiSettingPoint(list(v.add), list(v.rem))
+            self._s = from_ansi_string._s
 
         # Unpack settings
         ansi_settings = []
@@ -1726,7 +1794,7 @@ class _AnsiSettingPoint:
         for setting in settings:
             if isinstance(setting, AnsiSetting):
                 if make_unique:
-                    setting = AnsiSetting(setting)
+                    setting = AnsiSetting(setting, False)
                 settings_out.append(setting)
             elif isinstance(setting, str):
                 settings_out.extend(__class__._scrub_ansi_format_string(setting))
@@ -1746,14 +1814,13 @@ class _AnsiSettingPoint:
                 del settings_out[idx]
             else:
                 if current_ints:
-                    new_seq = _parse_graphic_sequence(current_ints, True)
+                    new_seq = _parse_graphic_sequence(current_ints, True, False)
                     settings_out[idx:idx] = new_seq
                     idx += len(new_seq)
                     current_ints = []
-                else:
-                    idx += 1
+                idx += 1
         if current_ints:
-            settings_out += _parse_graphic_sequence(current_ints, True)
+            settings_out += _parse_graphic_sequence(current_ints, True, False)
 
         return settings_out
 
@@ -1818,7 +1885,6 @@ class _AnsiCharIterator:
 class AnsiStr(str):
     '''
     Immutable version of AnsiString. The advantage of this object is that isinstance(AnsiStr(), str) returns True.
-    Simplification and optimization of escape codes are always done automatically by this type.
     '''
     def __new__(
         cls,
@@ -1829,7 +1895,7 @@ class AnsiStr(str):
             ansi_string = s.copy()
         elif isinstance(s, AnsiStr):
             if settings:
-                ansi_string = AnsiString(s, *settings)
+                ansi_string = s._s
             else:
                 instance = super().__new__(cls, str(s))
                 instance._s = s._s
@@ -1838,15 +1904,14 @@ class AnsiStr(str):
             ansi_string = AnsiString(s, *settings)
         else:
             raise TypeError('Invalid type for s')
-        ansi_string.simplify()
         instance = super().__new__(cls, str(ansi_string))
-        instance._s = ansi_string.base_str
+        instance._s = ansi_string
         return instance
 
     @property
     def base_str(self) -> str:
         ''' Returns the base string without any formatting set. '''
-        return self._s
+        return self._s.base_str
 
     def __len__(self) -> int:
         ''' Returns the length of the underlying string '''
@@ -1860,7 +1925,7 @@ class AnsiStr(str):
             value - the right-hand-side value as str or AnsiString
         Returns: a new AnsiStr
         '''
-        cpy = AnsiString(str(self))
+        cpy = self._s.copy()
         cpy += value
         return AnsiStr(cpy)
 
@@ -1874,7 +1939,7 @@ class AnsiStr(str):
         # Can't add in place - always return a new instance
         return (self + value)
 
-    def to_str(self, __format_spec:str=None) -> str:
+    def to_str(self, __format_spec:str=None, optimize:bool=True) -> str:
         '''
         Returns an ANSI format string with both internal and given formatting spec set.
         Parameters:
@@ -1884,8 +1949,9 @@ class AnsiStr(str):
                             ex: ">10:bold;red" to make output right justify with width of 10, bold and red formatting
                             No formatting should be applied as part of the justification, add a '-' after the fillchar.
                             ex: " ->10:bold;red" to not not apply formatting to justification characters
+            optimize - when true, attempt to optimize code strings
         '''
-        return AnsiString(str(self)).to_str(__format_spec, True)
+        return self._s.to_str(__format_spec, optimize)
 
     def __format__(self, __format_spec:str) -> str:
         '''
@@ -1910,7 +1976,7 @@ class AnsiStr(str):
         Note: the new copy may contain some references to AnsiSettings in the origin. This is ok since AnsiSettings
               are not internally modified after creation.
         '''
-        return AnsiStr(AnsiString(str(self)).__getitem__(val))
+        return AnsiStr(self._s.__getitem__(val))
 
     def apply_formatting(
             self,
@@ -1927,7 +1993,7 @@ class AnsiStr(str):
             group - match the group to set
         Returns: a new AnsiStr
         '''
-        cpy = AnsiString(str(self))
+        cpy = self._s.copy()
         cpy.apply_formatting(settings, start, end, topmost)
         return AnsiStr(cpy)
 
@@ -1945,7 +2011,7 @@ class AnsiStr(str):
             end - The string index where the setting(s) should be removed
         Returns: a new AnsiStr
         '''
-        cpy = AnsiString(str(self))
+        cpy = self._s.copy()
         cpy.remove_formatting(settings, start, end)
         return AnsiStr(cpy)
 
@@ -1963,7 +2029,7 @@ class AnsiStr(str):
             group - match the group to set
         Returns: a new AnsiStr
         '''
-        cpy = AnsiString(str(self))
+        cpy = self._s.copy()
         cpy.apply_formatting_for_match(settings, match_object, group)
         return AnsiStr(cpy)
 
@@ -1985,7 +2051,7 @@ class AnsiStr(str):
             count - the number of matches to format or -1 to match all
         Returns: a new AnsiStr
         '''
-        cpy = AnsiString(str(self))
+        cpy = self._s.copy()
         cpy.format_matching(matchspec, *format, regex=regex, match_case=match_case, count=count)
         return AnsiStr(cpy)
 
@@ -2007,7 +2073,7 @@ class AnsiStr(str):
             count - the number of matches to unformat or -1 to match all
         Returns: a new AnsiStr
         '''
-        cpy = AnsiString(str(self))
+        cpy = self._s.copy()
         cpy.unformat_matching(matchspec, *format, regex=regex, match_case=match_case, count=count)
         return AnsiStr(cpy)
 
@@ -2024,7 +2090,7 @@ class AnsiStr(str):
         Return a capitalized version of the string.
         More specifically, make the first character have upper case and the rest lower case.
         '''
-        cpy = AnsiString(str(self))
+        cpy = self._s.copy()
         cpy.capitalize(inplace=True)
         return AnsiStr(cpy)
 
@@ -2032,7 +2098,7 @@ class AnsiStr(str):
         '''
         Return a version of the string suitable for caseless comparisons.
         '''
-        cpy = AnsiString(str(self))
+        cpy = self._s.copy()
         cpy.casefold(inplace=True)
         return AnsiStr(cpy)
 
@@ -2044,7 +2110,7 @@ class AnsiStr(str):
             fillchar - the character used to fill empty spaces
         Returns: a new AnsiStr
         '''
-        cpy = AnsiString(str(self))
+        cpy = self._s.copy()
         cpy.center(width, fillchar, inplace=True)
         return AnsiStr(cpy)
 
@@ -2056,7 +2122,7 @@ class AnsiStr(str):
             fillchar - the character used to fill empty spaces
         Returns: a new AnsiStr
         '''
-        cpy = AnsiString(str(self))
+        cpy = self._s.copy()
         cpy.ljust(width, fillchar, inplace=True)
         return AnsiStr(cpy)
 
@@ -2068,7 +2134,7 @@ class AnsiStr(str):
             fillchar - the character used to fill empty spaces
         Returns: a new AnsiStr
         '''
-        cpy = AnsiString(str(self))
+        cpy = self._s.copy()
         cpy.rjust(width, fillchar, inplace=True)
         return AnsiStr(cpy)
 
@@ -2084,7 +2150,7 @@ class AnsiStr(str):
 
     def __contains__(self, value:Union[str,'AnsiString','AnsiStr',Any]) -> bool:
         ''' Returns True iff the str or the underlying str of an AnsiString is in this AnsiString '''
-        return AnsiString(str(self)).__contains__(value)
+        return self._s.__contains__(value)
 
     @staticmethod
     def join(*args:Union[str,'AnsiString','AnsiStr']) -> 'AnsiStr':
@@ -2095,7 +2161,7 @@ class AnsiStr(str):
         '''
         Convert to lowercase into a new AnsiStr.
         '''
-        cpy = AnsiString(str(self))
+        cpy = self._s.copy()
         cpy.lower(inplace=True)
         return AnsiStr(cpy)
 
@@ -2103,7 +2169,7 @@ class AnsiStr(str):
         '''
         Convert to uppercase into a new AnsiStr.
         '''
-        cpy = AnsiString(str(self))
+        cpy = self._s.copy()
         cpy.upper(inplace=True)
         return AnsiStr(cpy)
 
@@ -2113,7 +2179,7 @@ class AnsiStr(str):
         Parameters:
             chars - If not None, remove characters in chars instead
         '''
-        cpy = AnsiString(str(self))
+        cpy = self._s.copy()
         cpy.lstrip(chars, inplace=True)
         return AnsiStr(cpy)
 
@@ -2124,7 +2190,7 @@ class AnsiStr(str):
             start - start index
             end - end index
         '''
-        cpy = AnsiString(str(self))
+        cpy = self._s.copy()
         cpy.clip(start, end, inplace=True)
         return AnsiStr(cpy)
 
@@ -2136,7 +2202,7 @@ class AnsiStr(str):
             inplace - when True, do the conversion in-place and return self;
                       when False, do the conversion on a copy and return the copy
         '''
-        cpy = AnsiString(str(self))
+        cpy = self._s.copy()
         cpy.rstrip(chars, inplace=True)
         return AnsiStr(cpy)
 
@@ -2146,7 +2212,7 @@ class AnsiStr(str):
         Parameters:
             chars - If not None, remove characters in chars instead
         '''
-        cpy = AnsiString(str(self))
+        cpy = self._s.copy()
         cpy.strip(chars, inplace=True)
         return AnsiStr(cpy)
 
@@ -2159,7 +2225,7 @@ class AnsiStr(str):
 
         If the separator is not found, returns a 3-tuple containing the original string and two empty strings.
         '''
-        return [AnsiStr(x) for x in AnsiString(str(self)).partition(sep)]
+        return [AnsiStr(x) for x in self._s.partition(sep)]
 
     def rpartition(self, sep:str) -> Tuple['AnsiStr','AnsiStr','AnsiStr']:
         '''
@@ -2170,7 +2236,7 @@ class AnsiStr(str):
 
         If the separator is not found, returns a 3-tuple containing the original string and two empty strings.
         '''
-        return [AnsiStr(x) for x in AnsiString(str(self)).rpartition(sep)]
+        return [AnsiStr(x) for x in self._s.rpartition(sep)]
 
     def ansi_settings_at(self, idx:int) -> List[AnsiSetting]:
         '''
@@ -2178,7 +2244,7 @@ class AnsiStr(str):
         Parameters:
             idx - the index to get settings of
         '''
-        return AnsiString(str(self)).ansi_settings_at(idx)
+        return self._s.ansi_settings_at(idx)
 
     def settings_at(self, idx:int) -> str:
         '''
@@ -2186,7 +2252,7 @@ class AnsiStr(str):
         Parameters:
             idx - the index to get settings of
         '''
-        return AnsiString(str(self)).settings_at(idx)
+        return self._s.settings_at(idx)
 
     def removeprefix(self, prefix:str) -> 'AnsiStr':
         '''
@@ -2197,7 +2263,7 @@ class AnsiStr(str):
         Parameters:
             prefix - the prefix to remove
         '''
-        cpy = AnsiString(str(self))
+        cpy = self._s.copy()
         cpy.removeprefix(prefix, inplace=True)
         return AnsiStr(cpy)
 
@@ -2211,7 +2277,7 @@ class AnsiStr(str):
         Parameters:
             suffix - the suffix to remove
         '''
-        cpy = AnsiString(str(self))
+        cpy = self._s.copy()
         cpy.removesuffix(suffix, inplace=True)
         return AnsiStr(cpy)
 
@@ -2225,7 +2291,7 @@ class AnsiStr(str):
                   formatting of the first character of the old string
             count - the number of occurrences to replace or -1 to replace all occurrences
         '''
-        cpy = AnsiString(str(self))
+        cpy = self._s.copy()
         cpy.replace(old, new, count, inplace=True)
         return AnsiStr(cpy)
 
@@ -2427,7 +2493,7 @@ class AnsiStr(str):
         Note, str.split() is mainly useful for data that has been intentionally delimited. With natural text that
         includes punctuation, consider using the regular expression module.
         '''
-        return [AnsiStr(x) for x in AnsiString(str(self)).split(sep, maxsplit)]
+        return [AnsiStr(x) for x in self._s.split(sep, maxsplit)]
 
     def rsplit(self, sep:Union[str,None]=None, maxsplit:int=-1) -> List['AnsiStr']:
         '''
@@ -2443,7 +2509,7 @@ class AnsiStr(str):
 
         Splitting starts at the end of the string and works to the front.
         '''
-        return [AnsiStr(x) for x in AnsiString(str(self)).rsplit(sep, maxsplit)]
+        return [AnsiStr(x) for x in self._s.rsplit(sep, maxsplit)]
 
     def splitlines(self, keepends:bool=False) -> List['AnsiStr']:
         '''
@@ -2451,11 +2517,11 @@ class AnsiStr(str):
 
         Line breaks are not included in the resulting list unless keepends is given and true.
         '''
-        return [AnsiStr(x) for x in AnsiString(str(self)).splitlines(keepends)]
+        return [AnsiStr(x) for x in self._s.splitlines(keepends)]
 
     def swapcase(self) -> 'AnsiStr':
         ''' Convert uppercase characters to lowercase and lowercase characters to uppercase. '''
-        cpy = AnsiString(str(self))
+        cpy = self._s.copy()
         cpy.swapcase(inplace=True)
         return AnsiStr(cpy)
 
@@ -2465,7 +2531,7 @@ class AnsiStr(str):
 
         More specifically, words start with uppercased characters and all remaining cased characters have lower case.
         '''
-        cpy = AnsiString(str(self))
+        cpy = self._s.copy()
         cpy.title(inplace=True)
         return AnsiStr(cpy)
 
@@ -2475,7 +2541,7 @@ class AnsiStr(str):
 
         The string is never truncated.
         '''
-        cpy = AnsiString(str(self))
+        cpy = self._s.copy()
         cpy.zfill(width, inplace=True)
         return AnsiStr(cpy)
 
@@ -2485,7 +2551,7 @@ class _AnsiStrCharIterator:
     '''
     def __init__(self, s:'AnsiStr'):
         self.current_idx:int = -1
-        self.s:AnsiString = AnsiString(s)
+        self.s:AnsiString = s._s
 
     def __iter__(self):
         return self
