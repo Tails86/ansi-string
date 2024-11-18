@@ -30,7 +30,7 @@ from .ansi_format import (
     ansi_graphic_rendition_code_end
 )
 
-__version__ = '1.1.3'
+__version__ = '1.1.4'
 PACKAGE_NAME = 'ansi-string'
 
 # Constant: all characters considered to be whitespaces - this is used in strip functionality
@@ -193,8 +193,7 @@ class ParsedAnsiControlSequenceString:
 
 def _parse_graphic_sequence(
     sequence:Union[str,List[Union[int,str]]],
-    add_dangling:bool=False,
-    allow_reset:bool=True
+    add_dangling:bool=False
 ) -> List[AnsiSetting]:
     if not sequence:
         return [AnsiSetting(AnsiParam.RESET.value)]
@@ -230,8 +229,7 @@ def _parse_graphic_sequence(
                 current_set.append(items[idx])
             left_in_set -= 1
             if left_in_set <= 0:
-                if allow_reset or (current_set[0] != '' and current_set[0] != AnsiParam.RESET.value):
-                    output.append(AnsiSetting(current_set))
+                output.append(AnsiSetting(current_set))
                 current_set = []
         idx += 1
     if current_set and add_dangling:
@@ -292,13 +290,15 @@ class AnsiString:
                 - Each given value within the parenthesis is treated as hexadecimal if the value starts with "0x",
                   otherwise it is treated as a decimal value
             - A string containing known ANSI directives (ex: `"01;31"` for BOLD and FG_RED)
-                - This string will be parsed, and all invalid values, including RESET (0), will be thrown out
-            - Integer values which will be parsed in a similar way to strings
+                - Only non-negative integers are valid; all other values will cause a ValueError exception
+                - This string will be parsed to determine if optimizable (see is_optimizable())
+                - To subsequently force invalid/redundant values to be thrown out, call simplify()
+            - Integer values which will be parsed in a similar way to above string ANSI directives
 
-        A setting may also be any of the following, but these are not advised because they will be used verbatim,
-        and optimization of codes on string output will not occur.
+        A setting may also be any of the following. These are not advised because they will be used verbatim,
+        no exceptions will be thrown, and optimization of codes on string output will not occur.
             - An AnsiSetting object
-            - A string which starts with the character "[" plus ANSI directives (ex: `"[38;5;214"`)
+            - A string which starts with the character `"["` plus ANSI directives (ex: `"[38;5;214"`)
         '''
         # Key is the string index to make a color change at
         self._fmts:Dict[int,'_AnsiSettingPoint'] = {}
@@ -386,7 +386,7 @@ class AnsiString:
             if settings_to_remove:
                 self.remove_formatting(settings_to_remove, key)
             if settings_to_apply:
-                self.apply_formatting(settings_to_apply, key)
+                self._internal_apply_formatting(settings_to_apply, key, ansi_settings_parsable=True)
 
     def simplify(self):
         '''
@@ -426,6 +426,17 @@ class AnsiString:
             topmost - When true, the settings placed at the end of the set for the given
                       start_index, meaning it takes precedent over others; the opposite when False
         '''
+        # Ensure external calls will set AnsiSettings as not parsable
+        return self._internal_apply_formatting(settings, start, end, topmost, False)
+
+    def _internal_apply_formatting(
+            self,
+            settings:Union[AnsiFormat, AnsiSetting, str, int, list, tuple],
+            start:int=0,
+            end:Union[int,None]=None,
+            topmost:bool=True,
+            ansi_settings_parsable:bool=True
+    ):
         start = self._slice_val_to_idx(start, 0)
         end = self._slice_val_to_idx(end, len(self._s))
 
@@ -433,7 +444,8 @@ class AnsiString:
             # Ignore - nothing to apply
             return
 
-        ansi_settings = _AnsiSettingPoint._scrub_ansi_settings(settings, make_unique=True)
+        ansi_settings = _AnsiSettingPoint._scrub_ansi_settings(
+            settings, make_unique=True, ansi_settings_parsable=ansi_settings_parsable)
 
         if not ansi_settings:
             # Empty set - usually just a string of semicolons was received
@@ -1785,7 +1797,8 @@ class _AnsiSettingPoint:
     @staticmethod
     def _scrub_ansi_settings(
         settings:Union[List[str], str, List[int], int, List[AnsiFormat], AnsiFormat, List['AnsiSetting'], 'AnsiSetting'],
-        make_unique=False
+        make_unique=False,
+        ansi_settings_parsable=True
     ) -> List[AnsiSetting]:
         if not isinstance(settings, list) and not isinstance(settings, tuple):
             settings = [settings]
@@ -1794,7 +1807,7 @@ class _AnsiSettingPoint:
         for setting in settings:
             if isinstance(setting, AnsiSetting):
                 if make_unique:
-                    setting = AnsiSetting(setting, False)
+                    setting = AnsiSetting(setting, ansi_settings_parsable)
                 settings_out.append(setting)
             elif isinstance(setting, str):
                 settings_out.extend(__class__._scrub_ansi_format_string(setting))
@@ -1814,13 +1827,13 @@ class _AnsiSettingPoint:
                 del settings_out[idx]
             else:
                 if current_ints:
-                    new_seq = _parse_graphic_sequence(current_ints, True, False)
+                    new_seq = _parse_graphic_sequence(current_ints, True)
                     settings_out[idx:idx] = new_seq
                     idx += len(new_seq)
                     current_ints = []
                 idx += 1
         if current_ints:
-            settings_out += _parse_graphic_sequence(current_ints, True, False)
+            settings_out += _parse_graphic_sequence(current_ints, True)
 
         return settings_out
 
@@ -1939,6 +1952,14 @@ class AnsiStr(str):
         # Can't add in place - always return a new instance
         return (self + value)
 
+    def is_optimizable(self) -> bool:
+        '''
+        Returns True iff all of the following are true for this object:
+            - No verbatim setting strings (strings that starts with "[") were set in formatting
+            - All parsed settings are considered internally valid
+        '''
+        return self._s.is_optimizable()
+
     def to_str(self, __format_spec:str=None, optimize:bool=True) -> str:
         '''
         Returns an ANSI format string with both internal and given formatting spec set.
@@ -1977,6 +1998,15 @@ class AnsiStr(str):
               are not internally modified after creation.
         '''
         return AnsiStr(self._s.__getitem__(val))
+
+    def simplify(self) -> 'AnsiStr':
+        '''
+        Attempts to simplify formatting by re-parsing the ANSI formatting data. This will throw out any data internally
+        determined as invalid and remove redundant settings.
+        '''
+        cpy = self._s.copy()
+        cpy.simplify()
+        return AnsiStr(cpy)
 
     def apply_formatting(
             self,

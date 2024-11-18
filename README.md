@@ -268,11 +268,13 @@ The first argument, `s`, is a string to be formatted. The next 0 to N arguments 
     - Each given value within the parenthesis is treated as hexadecimal if the value starts with "0x",
         otherwise it is treated as a decimal value
 - A string containing known ANSI directives (ex: `"01;31"` for BOLD and FG_RED)
-    - This string will be parsed, and all invalid values, including RESET (0), will be thrown out
-- Integer values which will be parsed in a similar way to strings
+    - Only non-negative integers are valid; all other values will cause a ValueError exception
+    - This string will be parsed to determine if optimizable (see is_optimizable())
+    - To subsequently force invalid/redundant values to be thrown out, call simplify()
+- Integer values which will be parsed in a similar way to above string ANSI directives
 
-A setting may also be any of the following, but these are not advised because they will be used verbatim,
-and optimization of codes on string output will not occur.
+A setting may also be any of the following. These are not advised because they will be used verbatim,
+no exceptions will be thrown, and optimization of codes on string output will not occur.
 - An AnsiSetting object
 - A string which starts with the character `"["` plus ANSI directives (ex: `"[38;5;214"`)
 
@@ -349,6 +351,14 @@ bg_colors = [100, 232, 170]
 ul_colors = [0xFF, 0x63, 0x47]
 print(f"{ansi_str::rgb({fg_color});bg_rgb({bg_colors});ul_rgb({ul_colors})}")
 ```
+
+#### is_optimizable
+
+The methods `AnsiString.is_optimizable()` and `AnsiStr.is_optimizable()` are provided to determine if the provided formatting settings are considered valid and therefore optimizable.
+
+#### simplify
+
+The method `AnsiString.simplify()` will simplify formatting settings when called by removing invalid and redundant codes. The method `AnsiStr.simplify()` works similarly except it returns a new object since `AnsiStr` is immutable.
 
 #### format_matching and unformat_matching
 

@@ -44,23 +44,59 @@ class AnsiStringTests(unittest.TestCase):
     def test_no_format(self):
         s = AnsiString('No format')
         self.assertEqual(str(s), 'No format')
+        self.assertTrue(s.is_optimizable())
 
     def test_from_ansi_string(self):
         s = AnsiString('\x1b[32mabc\x1b[m')
         self.assertEqual(str(s), '\x1b[32mabc\x1b[m')
         self.assertEqual(s.base_str, 'abc')
+        self.assertTrue(s.is_optimizable())
 
     def test_invalid_string_format(self):
         s = AnsiString('This is not formatted but is still parsed', ';;;')
         self.assertEqual(str(s), 'This is not formatted but is still parsed')
 
+    def test_exception_string_format1(self):
+        with self.assertRaises(ValueError):
+            AnsiString('A', '-1')
+
+    def test_exception_string_format2(self):
+        with self.assertRaises(ValueError):
+            AnsiString('A', 'invalid data')
+
+    def test_exception_string_format3(self):
+        with self.assertRaises(ValueError):
+            AnsiString('A', 'rgb()')
+
+    def test_exception_string_format4(self):
+        with self.assertRaises(ValueError):
+            AnsiString('A', 'ul_rgb(T)')
+
+    def test_exception_string_format5(self):
+        with self.assertRaises(ValueError):
+            AnsiString('A', 'bg_rgb(1,2)')
+
+    def test_exception_string_format5(self):
+        with self.assertRaises(ValueError):
+            AnsiString('A', 'dul_rgb(1,2,X)')
+
+    def test_exception_int_format(self):
+        with self.assertRaises(ValueError):
+            AnsiString('A', -1)
+
+    def test_exception_input_not_string(self):
+        with self.assertRaises(TypeError):
+            AnsiString(1)
+
     def test_using_AnsiFormat(self):
         s = AnsiString('This is bold', AnsiFormat.BOLD)
         self.assertEqual(str(s), '\x1b[1mThis is bold\x1b[m')
+        self.assertTrue(s.is_optimizable())
 
     def test_using_list_of_AnsiFormat(self):
         s = AnsiString('This is bold and red', [AnsiFormat.BOLD, AnsiFormat.RED])
         self.assertEqual(str(s), '\x1b[1;31mThis is bold and red\x1b[m')
+        self.assertTrue(s.is_optimizable())
 
     def test_using_list_of_various(self):
         s = AnsiString('Lots of formatting!', ['[1', AnsiFormat.UL_RED, 48, 2, 175, 95, 95, 'rgb(0x12A03F);ul_white'])
@@ -69,10 +105,12 @@ class AnsiStringTests(unittest.TestCase):
     def test_custom_formatting(self):
         s = AnsiString('This string contains custom formatting', '[38;2;175;95;95')
         self.assertEqual(str(s), '\x1b[38;2;175;95;95mThis string contains custom formatting\x1b[m')
+        self.assertFalse(s.is_optimizable())
 
     def test_int_formatting(self):
         s = AnsiString('This string contains int formatting', [38, 2, 175, 95, 95])
         self.assertEqual(str(s), '\x1b[38;2;175;95;95mThis string contains int formatting\x1b[m')
+        self.assertTrue(s.is_optimizable())
 
     def test_ranges(self):
         s = AnsiString('This string contains multiple color settings across different ranges')
@@ -836,6 +874,21 @@ class AnsiStringTests(unittest.TestCase):
             str(s),
             '\x1b[36;1mHere is a str\x1b[39ming\x1b[36m that I will unformat \x1b[48;2;255;192;203mmatching\x1b[m'
         )
+
+    def test_simplify1(self):
+        s = AnsiString('Hello Hello', AnsiFormat.RED)
+        s.apply_formatting(AnsiFormat.BLUE, 1, -1)
+        s.simplify()
+        # Now that the string is simplified, removing blue will not make this section red again
+        s.remove_formatting(AnsiFormat.BLUE)
+        self.assertEqual(str(s), '\x1b[31mH\x1b[mello Hell\x1b[31mo\x1b[m')
+
+    def test_simplify2(self):
+        s = AnsiString('Hello Hello', AnsiFormat.BLUE, '[31')
+        self.assertFalse(s.is_optimizable())
+        self.assertEqual(str(s), '\x1b[34;31mHello Hello\x1b[m')
+        s.simplify()
+        self.assertEqual(str(s), '\x1b[31mHello Hello\x1b[m')
 
 
     # Exceptions tests

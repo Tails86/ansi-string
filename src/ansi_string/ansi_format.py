@@ -20,16 +20,23 @@ class AnsiSetting:
     This class is used to wrap ANSI values which constitute as a single setting. Giving an AnsiSetting to the
     constructor of AnsiString has a similar effect as providing a format string which starts with "[".
     '''
-    def __init__(self, setting:Union[str, int, List[int], Tuple[int], 'AnsiSetting'], parsable:bool=True):
+    def __init__(self, setting:Union[str, int, List[int], Tuple[int], 'AnsiSetting'], parsable:bool=None):
         if isinstance(setting, list) or isinstance(setting, tuple):
             setting = ansi_sep.join([str(s) for s in setting])
-        elif isinstance(setting, int) or isinstance(setting, AnsiSetting):
+        elif isinstance(setting, AnsiSetting):
+            if parsable is None:
+                parsable = setting._parsable
+            setting = str(setting)
+        elif isinstance(setting, int):
             setting = str(setting)
         elif not isinstance(setting, str):
             raise TypeError('Unsupported type for setting: {}'.format(type(setting)))
 
         if not setting:
             raise ValueError('Setting may not be None or empty string')
+
+        if parsable is None:
+            parsable = True
 
         self._str = setting
         self._parsable = parsable
@@ -46,7 +53,10 @@ class AnsiSetting:
 
     @property
     def parsable(self) -> bool:
-        return self._parsable
+        if not self._parsable:
+            return False
+        initial_param = self.get_initial_param()
+        return (initial_param is not None and initial_param != AnsiParam.RESET)
 
     def to_list(self) -> List[Union[int, str]]:
         '''
