@@ -233,8 +233,7 @@ def _parse_graphic_sequence(
                 current_set = []
         idx += 1
     if current_set and add_dangling:
-        # Add dangling as non-parsable setting
-        output.append(AnsiSetting(current_set, False))
+        output.append(AnsiSetting(current_set))
     return output
 
 def _settings_to_dict(
@@ -386,7 +385,7 @@ class AnsiString:
             if settings_to_remove:
                 self.remove_formatting(settings_to_remove, key)
             if settings_to_apply:
-                self._internal_apply_formatting(settings_to_apply, key, ansi_settings_parsable=True)
+                self.apply_formatting(settings_to_apply, key)
 
     def simplify(self):
         '''
@@ -426,17 +425,6 @@ class AnsiString:
             topmost - When true, the settings placed at the end of the set for the given
                       start_index, meaning it takes precedent over others; the opposite when False
         '''
-        # Ensure external calls will set AnsiSettings as not parsable
-        return self._internal_apply_formatting(settings, start, end, topmost, False)
-
-    def _internal_apply_formatting(
-            self,
-            settings:Union[AnsiFormat, AnsiSetting, str, int, list, tuple],
-            start:int=0,
-            end:Union[int,None]=None,
-            topmost:bool=True,
-            ansi_settings_parsable:bool=True
-    ):
         start = self._slice_val_to_idx(start, 0)
         end = self._slice_val_to_idx(end, len(self._s))
 
@@ -444,8 +432,7 @@ class AnsiString:
             # Ignore - nothing to apply
             return
 
-        ansi_settings = _AnsiSettingPoint._scrub_ansi_settings(
-            settings, make_unique=True, ansi_settings_parsable=ansi_settings_parsable)
+        ansi_settings = _AnsiSettingPoint._scrub_ansi_settings(settings, make_unique=True)
 
         if not ansi_settings:
             # Empty set - usually just a string of semicolons was received
@@ -1764,7 +1751,7 @@ class _AnsiSettingPoint:
             return []
         elif ansi_format.startswith("["):
             # Use the rest of the string as-is for settings
-            return [AnsiSetting(ansi_format[1:], parsable=False)]
+            return [AnsiSetting(ansi_format[1:])]
         else:
             # The format string contains names within AnsiFormat or integers, separated by semicolon
             formats = ansi_format.split(ansi_sep)
@@ -1797,8 +1784,7 @@ class _AnsiSettingPoint:
     @staticmethod
     def _scrub_ansi_settings(
         settings:Union[List[str], str, List[int], int, List[AnsiFormat], AnsiFormat, List['AnsiSetting'], 'AnsiSetting'],
-        make_unique=False,
-        ansi_settings_parsable=True
+        make_unique=False
     ) -> List[AnsiSetting]:
         if not isinstance(settings, list) and not isinstance(settings, tuple):
             settings = [settings]
@@ -1807,7 +1793,7 @@ class _AnsiSettingPoint:
         for setting in settings:
             if isinstance(setting, AnsiSetting):
                 if make_unique:
-                    setting = AnsiSetting(setting, ansi_settings_parsable)
+                    setting = AnsiSetting(setting)
                 settings_out.append(setting)
             elif isinstance(setting, str):
                 settings_out.extend(__class__._scrub_ansi_format_string(setting))

@@ -20,12 +20,10 @@ class AnsiSetting:
     This class is used to wrap ANSI values which constitute as a single setting. Giving an AnsiSetting to the
     constructor of AnsiString has a similar effect as providing a format string which starts with "[".
     '''
-    def __init__(self, setting:Union[str, int, List[int], Tuple[int], 'AnsiSetting'], parsable:bool=None):
+    def __init__(self, setting:Union[str, int, List[int], Tuple[int], 'AnsiSetting']):
         if isinstance(setting, list) or isinstance(setting, tuple):
             setting = ansi_sep.join([str(s) for s in setting])
         elif isinstance(setting, AnsiSetting):
-            if parsable is None:
-                parsable = setting._parsable
             setting = str(setting)
         elif isinstance(setting, int):
             setting = str(setting)
@@ -35,11 +33,7 @@ class AnsiSetting:
         if not setting:
             raise ValueError('Setting may not be None or empty string')
 
-        if parsable is None:
-            parsable = True
-
         self._str = setting
-        self._parsable = parsable
 
     def __eq__(self, value) -> bool:
         if isinstance(value, str):
@@ -53,10 +47,37 @@ class AnsiSetting:
 
     @property
     def parsable(self) -> bool:
-        if not self._parsable:
+        codes = self.to_list()
+
+        # At least 1 code must be found, and first value must not be reset
+        if not codes or codes[0] == AnsiParam.RESET.value:
             return False
-        initial_param = self.get_initial_param()
-        return (initial_param is not None and initial_param != AnsiParam.RESET)
+
+        # All codes must be an integer between 0 and 255
+        for code in codes:
+            if not isinstance(code, int) or code < 0 or code > 255:
+                return False
+
+        # First code must be a known parameter
+        try:
+            initial_param = AnsiParam(codes[0])
+        except ValueError:
+            return False
+
+        # Check expected number of elements
+        if (
+            initial_param == AnsiParam.FG_SET or
+            initial_param == AnsiParam.BG_SET or
+            initial_param == AnsiParam.SET_UNDERLINE_COLOR
+        ):
+            if len(codes) < 2:
+                return False
+            elif codes[1] == 5:
+                return len(codes) == 3
+            elif codes[1] == 2:
+                return len(codes) == 5
+
+        return len(codes) == 1
 
     def to_list(self) -> List[Union[int, str]]:
         '''

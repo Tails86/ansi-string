@@ -55,6 +55,12 @@ class AnsiStringTests(unittest.TestCase):
     def test_invalid_string_format(self):
         s = AnsiString('This is not formatted but is still parsed', ';;;')
         self.assertEqual(str(s), 'This is not formatted but is still parsed')
+        self.assertTrue(s.is_optimizable())
+
+    def test_invalid_string_format(self):
+        s = AnsiString('This is valid but not optimizable', '0;1;2;3')
+        self.assertEqual(str(s), '\x1b[0;1;2;3mThis is valid but not optimizable\x1b[m')
+        self.assertFalse(s.is_optimizable())
 
     def test_exception_string_format1(self):
         with self.assertRaises(ValueError):
@@ -98,6 +104,11 @@ class AnsiStringTests(unittest.TestCase):
         self.assertEqual(str(s), '\x1b[1;31mThis is bold and red\x1b[m')
         self.assertTrue(s.is_optimizable())
 
+    def test_using_list_of_AnsiFormat(self):
+        s = AnsiString('This is red', AnsiFormat.rgb(255, 0, 0))
+        self.assertEqual(str(s), '\x1b[38;2;255;0;0mThis is red\x1b[m')
+        self.assertTrue(s.is_optimizable())
+
     def test_using_list_of_various(self):
         s = AnsiString('Lots of formatting!', ['[1', AnsiFormat.UL_RED, 48, 2, 175, 95, 95, 'rgb(0x12A03F);ul_white'])
         self.assertEqual(str(s), '\x1b[1;4;58;5;9;48;2;175;95;95;38;2;18;160;63;4;58;5;15mLots of formatting!\x1b[m')
@@ -105,6 +116,11 @@ class AnsiStringTests(unittest.TestCase):
     def test_custom_formatting(self):
         s = AnsiString('This string contains custom formatting', '[38;2;175;95;95')
         self.assertEqual(str(s), '\x1b[38;2;175;95;95mThis string contains custom formatting\x1b[m')
+        self.assertTrue(s.is_optimizable()) # Optimizable because this was a valid settings group
+
+    def test_custom_formatting(self):
+        s = AnsiString('This string contains custom formatting', '[38;10;175;95;95')
+        self.assertEqual(str(s), '\x1b[38;10;175;95;95mThis string contains custom formatting\x1b[m')
         self.assertFalse(s.is_optimizable())
 
     def test_int_formatting(self):
@@ -884,10 +900,11 @@ class AnsiStringTests(unittest.TestCase):
         self.assertEqual(str(s), '\x1b[31mH\x1b[mello Hell\x1b[31mo\x1b[m')
 
     def test_simplify2(self):
-        s = AnsiString('Hello Hello', AnsiFormat.BLUE, '[31')
-        self.assertFalse(s.is_optimizable())
-        self.assertEqual(str(s), '\x1b[34;31mHello Hello\x1b[m')
+        s = AnsiString('Hello Hello', AnsiFormat.BLUE, '[32;31')
+        self.assertFalse(s.is_optimizable()) # Not optimizable because '[32;31' contains 2 colors
+        self.assertEqual(str(s), '\x1b[34;32;31mHello Hello\x1b[m')
         s.simplify()
+        # The last color in the set gets priority in the simplification
         self.assertEqual(str(s), '\x1b[31mHello Hello\x1b[m')
 
 

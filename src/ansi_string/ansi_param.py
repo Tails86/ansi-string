@@ -207,6 +207,7 @@ class AnsiParam(IntEnum):
         self.effect_type:AnsiParamEffect = effect_settings[0]
         self.effect_fn:AnsiParamEffectFn = effect_settings[1]
 
+
 # This dictionary has no use after AnsiParam is fully defined
 # Lookup can be achieved through AnsiParam(<int>).effect_type
 del _ANSI_CODE_TO_EFFECT
