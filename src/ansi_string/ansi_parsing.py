@@ -95,7 +95,7 @@ class ParsedAnsiControlSequenceString:
 
 def parse_graphic_sequence(
     sequence:Union[str,List[Union[int,str]]],
-    add_dangling:bool=False
+    add_erroneous:bool=False
 ) -> List[AnsiSetting]:
     if not sequence:
         return [AnsiSetting(AnsiParam.RESET.value)]
@@ -126,7 +126,7 @@ def parse_graphic_sequence(
                         fn_set = True
                     elif value == fn.setup_seq[0]:
                         fn_found = True
-                if fn_found and not fn_set and not add_dangling:
+                if fn_found and not fn_set and not add_erroneous:
                     # Skip this value - it's a function code that doesn't supply a valid setup sequence
                     continue
             if value:
@@ -137,7 +137,10 @@ def parse_graphic_sequence(
             if left_in_set <= 0:
                 output.append(AnsiSetting(current_set))
                 current_set = []
-    if current_set and add_dangling:
+        elif add_erroneous:
+            output.append(AnsiSetting(value))
+    if current_set and add_erroneous:
+        # Dangling set of values
         output.append(AnsiSetting(current_set))
     return output
 
