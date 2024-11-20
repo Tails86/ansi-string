@@ -274,11 +274,10 @@ The first argument, `s`, is a string to be formatted. If this string contains AN
     - Integer values which will be parsed in a similar way to above string ANSI directives
 - The following setting types will be used verbatim as the ANSI graphics code and no exceptions will be thrown (handle with care)
     - An `AnsiSetting` object generated outside of `AnsiFormat` function calls
-        - It is advised to check AnsiSetting.valid to ensure settings don't terminate the escape sequence
+        - It is advised to check `AnsiSetting.valid` to ensure settings don't terminate the escape sequence
     - A string which starts with the character `"["` plus ANSI directives (ex: `"[38;5;214"`)
 
-Hint: After creation, `is_optimizable()` can be called to determine if all settings are parsable. Call
-`simplify()` in order to subsequently force invalid or redundant values to be thrown out.
+Hint: After creation, `is_formatting_parsable()` can be called to determine if all settings are parsable. Call `simplify()` in order to force invalid or redundant values to be thrown out.
 
 Examples:
 
@@ -359,9 +358,9 @@ ul_colors = [0xFF, 0x63, 0x47]
 print(f"{ansi_str::rgb({fg_color});bg_rgb({bg_colors});ul_rgb({ul_colors})}")
 ```
 
-#### is_optimizable
+#### is_formatting_parsable
 
-The methods `AnsiString.is_optimizable()` and `AnsiStr.is_optimizable()` are provided to determine if the provided formatting settings are considered valid and therefore optimizable.
+The methods `AnsiString.is_formatting_parsable()` and `AnsiStr.is_formatting_parsable()` are provided to determine if the provided formatting settings are parsable into known ANSI codes.
 
 #### simplify
 

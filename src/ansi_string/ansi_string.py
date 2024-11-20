@@ -33,8 +33,8 @@ from .ansi_format import (
 )
 from .ansi_parsing import ParsedAnsiControlSequenceString, parse_graphic_sequence, settings_to_dict
 
-__version__ = '1.1.5'
-PACKAGE_NAME = 'ansi-string'
+__version__ = '1.1.6'
+PACKAGE_NAME = 'ansi_string'
 
 # Constant: all characters considered to be whitespaces - this is used in strip functionality
 WHITESPACE_CHARS = ' \t\n\r\v\f'
@@ -176,8 +176,8 @@ class AnsiString:
                 - It is advised to check AnsiSetting.valid to ensure settings don't terminate the escape sequence
             - A string which starts with the character "[" plus ANSI directives (ex: "[38;5;214")
 
-        Hint: After creation, is_optimizable() can be called to determine if all settings are parsable. Call
-        simplify() in order to subsequently force invalid or redundant values to be thrown out.
+        Hint: After creation, is_formatting_parsable() can be called to determine if all settings are parsable. Call
+        simplify() in order to force invalid or redundant values to be thrown out.
         '''
         # Key is the string index to make a color change at
         self._fmts:Dict[int,'_AnsiSettingPoint'] = {}
@@ -678,18 +678,32 @@ class AnsiString:
 
         raise ValueError('Invalid format specifier')
 
-    def is_optimizable(self) -> bool:
+    def is_formatting_valid(self) -> bool:
         '''
-        Returns True iff all of the following are true for this object:
-            - No verbatim setting strings (strings that starts with "[") were set in formatting
-            - All parsed settings are considered internally valid
+        Returns True iff all settings are valid. Validity only means that no settings will prematurely terminate the
+        escape code. Call is_formatting_parsable() to determine if all settings are meaningful.
         '''
-        # Check if optimization is possible
+        for fmt in self._fmts.values():
+            for setting in fmt.add:
+                if not setting.valid:
+                    return False
+        return True
+
+    def is_formatting_parsable(self) -> bool:
+        '''
+        Returns True iff all settings are valid and parsable into known ANSI codes.
+        '''
         for fmt in self._fmts.values():
             for setting in fmt.add:
                 if not setting.parsable:
                     return False
         return True
+
+    def is_optimizable(self) -> bool:
+        '''
+        Returns True if optimization of formatting settings can be performed i.e. formatting is parsable.
+        '''
+        return self.is_formatting_parsable()
 
     def to_str(self, __format_spec:str=None, optimize:bool=True) -> str:
         '''
@@ -1823,11 +1837,22 @@ class AnsiStr(str):
         # Can't add in place - always return a new instance
         return (self + value)
 
+    def is_formatting_valid(self) -> bool:
+        '''
+        Returns True iff all settings are valid. Validity only means that no settings will prematurely terminate the
+        escape code. Call is_formatting_parsable() to determine if all settings are meaningful.
+        '''
+        return self._s.is_formatting_valid()
+
+    def is_formatting_parsable(self) -> bool:
+        '''
+        Returns True iff all settings are valid and parsable into known ANSI codes.
+        '''
+        return self._s.is_formatting_parsable()
+
     def is_optimizable(self) -> bool:
         '''
-        Returns True iff all of the following are true for this object:
-            - No verbatim setting strings (strings that starts with "[") were set in formatting
-            - All parsed settings are considered internally valid
+        Returns True if optimization of formatting settings can be performed i.e. formatting is parsable.
         '''
         return self._s.is_optimizable()
 

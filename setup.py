@@ -4,7 +4,7 @@ with open('README.md', 'r', encoding='utf-8') as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name='ansi-string',
+    name='ansi_string',
     author='James Smith',
     author_email='jmsmith86@gmail.com',
     description='ANSI String Formatter in Python for CLI Color and Style Formatting',
