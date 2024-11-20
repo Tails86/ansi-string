@@ -39,6 +39,9 @@ ansi_graphic_rendition_format = ansi_control_sequence_introducer + '{}' + ansi_g
 # The escape sequence which will clear all previous formatting (empty command is same as 0)
 ansi_escape_clear = ansi_graphic_rendition_format.format('')
 
+# Range of character codes (inclusive) needed for ANSI control-sequence-introducer termination
+ansi_term_ord_range = (0x40, 0x7E)
+
 class AnsiSetting:
     '''
     This class is used to wrap ANSI values which constitute as a single setting. Giving an AnsiSetting to the
@@ -70,11 +73,38 @@ class AnsiSetting:
         return self._str
 
     @property
+    def valid(self) -> bool:
+        '''
+        Returns True iff the setting string is a valid ANSI control sequence meaning this value won't prematurely escape
+        the control sequence when True.
+        '''
+        # The value of _str is meant to be constant, so this needs to only be checked once then saved for future recall
+        if hasattr(self, "_valid"):
+            return self._valid
+        self._valid = False
+
+        for c in self._str:
+            if ord(c) >= ansi_term_ord_range[0] and ord(c) <= ansi_term_ord_range[1]:
+                return False
+
+        self._valid = True
+        return self._valid
+
+    @property
     def parsable(self) -> bool:
         '''
         Returns True iff this setting group is parsable against all internally known codes and functions, is not an
         empty string, and is not a RESET directive.
         '''
+        # The value of _str is meant to be constant, so this needs to only be checked once then saved for future recall
+        if hasattr(self, "_parsable"):
+            return self._parsable
+        self._parsable = False
+
+        # Invalid string implies that the string is also not parsable
+        if not self.valid:
+            return False
+
         codes = self.to_list()
 
         # At least 1 code must be found, and first value must not be reset
@@ -95,10 +125,12 @@ class AnsiSetting:
         # Check all know multi-code functions for valid length
         for fn in _AnsiControlFn:
             if codes[0:len(fn.setup_seq)] == fn.setup_seq:
-                return len(codes) == fn.total_seq_count
+                self._parsable = (len(codes) == fn.total_seq_count)
+                return self._parsable
 
         # Otherwise, the length must be 1
-        return len(codes) == 1
+        self._parsable = (len(codes) == 1)
+        return self._parsable
 
     def to_list(self) -> List[Union[int, str]]:
         '''

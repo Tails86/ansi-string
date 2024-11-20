@@ -23,7 +23,9 @@
 # This file contains types and functions which help parse an existing ANSI-formatted string
 
 from typing import Any, Union, List, Dict, Tuple
-from .ansi_format import ansi_sep, ansi_graphic_rendition_code_end, ansi_control_sequence_introducer, AnsiSetting
+from .ansi_format import (
+    ansi_sep, ansi_graphic_rendition_code_end, ansi_control_sequence_introducer, ansi_term_ord_range, AnsiSetting
+)
 from .ansi_param import AnsiParam, AnsiParamEffect, AnsiParamEffectFn
 
 class AnsiControlSequence:
@@ -32,7 +34,11 @@ class AnsiControlSequence:
         self.ender = ender
 
     def is_ender_valid(self) -> bool:
-        return (len(self.ender) == 1 and ord(self.ender) >= 0x40 and ord(self.ender) <= 0x7E)
+        return (
+            len(self.ender) == 1 and
+            ord(self.ender) >= ansi_term_ord_range[0] and
+            ord(self.ender) <= ansi_term_ord_range[1]
+        )
 
     def is_graphic(self) -> bool:
         return self.ender == ansi_graphic_rendition_code_end
@@ -47,7 +53,7 @@ class ParsedAnsiControlSequenceString:
                 # This is the start of a Control Sequence Introducer command
                 i += len(ansi_control_sequence_introducer)
                 current_seq = ''
-                while i < len(s) and (ord(s[i]) < 0x40 or ord(s[i]) > 0x7E):
+                while i < len(s) and (ord(s[i]) < ansi_term_ord_range[0] or ord(s[i]) > ansi_term_ord_range[1]):
                     current_seq += s[i]
                     i += 1
                 ender = ''

@@ -12,7 +12,7 @@ SOURCE_DIR = os.path.abspath(os.path.join(PROJECT_DIR, 'src'))
 
 if os.path.isdir(SOURCE_DIR):
     sys.path.insert(0, SOURCE_DIR)
-from ansi_string import en_tty_ansi, AnsiFormat, AnsiStr, AnsiString, ColorComponentType, ColourComponentType
+from ansi_string import en_tty_ansi, AnsiFormat, AnsiSetting, AnsiStr, AnsiString, ColorComponentType, ColourComponentType
 
 def _is_windows():
     return sys.platform.lower().startswith('win')
@@ -119,10 +119,27 @@ class AnsiStringTests(unittest.TestCase):
         self.assertEqual(str(s), '\x1b[38;2;175;95;95mThis string contains custom formatting\x1b[m')
         self.assertTrue(s.is_optimizable()) # Optimizable because this was a valid settings group
 
-    def test_custom_formatting(self):
+    def test_custom_formatting2(self):
         s = AnsiString('This string contains custom formatting', '[38;10;175;95;95')
         self.assertEqual(str(s), '\x1b[38;10;175;95;95mThis string contains custom formatting\x1b[m')
+        self.assertFalse(s.is_optimizable()) # Not optimizable because "10" is an invalid value
+
+    def test_custom_formatting3(self):
+        # Will be used verbatim and won't throw an exception because it starts with '['
+        s = AnsiString('This string contains custom formatting', '[customformatting')
+        self.assertEqual(str(s), '\x1b[customformattingmThis string contains custom formatting\x1b[m')
         self.assertFalse(s.is_optimizable())
+
+    def test_custom_formatting4(self):
+        # Will be used verbatim and won't throw an exception because it is wrapped in an AnsiSetting
+        s = AnsiString('This string contains custom formatting', AnsiSetting('customformatting'))
+        self.assertEqual(str(s), '\x1b[customformattingmThis string contains custom formatting\x1b[m')
+        self.assertFalse(s.is_optimizable())
+
+    def test_remove_invalid_formatting(self):
+        s = AnsiString('Invalid data will be removed on simplification', AnsiSetting('invalid data'))
+        s.simplify()
+        self.assertEqual(str(s), 'Invalid data will be removed on simplification')
 
     def test_int_formatting(self):
         s = AnsiString('This string contains int formatting', [38, 2, 175, 95, 95])

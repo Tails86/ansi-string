@@ -168,14 +168,15 @@ class AnsiString:
                   otherwise it is treated as a decimal value
             - A string containing known ANSI directives (ex: `"01;31"` for BOLD and FG_RED)
                 - Only non-negative integers are valid; all other values will cause a ValueError exception
-                - This string will be parsed to determine if optimizable (see is_optimizable())
-                - To subsequently force invalid/redundant values to be thrown out, call simplify()
             - Integer values which will be parsed in a similar way to above string ANSI directives
 
-        A setting may also be any of the following. These are not advised because they will be used verbatim,
-        no exceptions will be thrown, and optimization of codes on string output will not occur.
+        A setting may also be any of the following. These are not advised because they will be used verbatim and
+        no exceptions will be thrown.
             - An AnsiSetting object
             - A string which starts with the character `"["` plus ANSI directives (ex: `"[38;5;214"`)
+
+        After creation, check is_optimization() to determine if all settings were internally parsable. Call simplify()
+        in order to subsequently force invalid or redundant values to be thrown out.
         '''
         # Key is the string index to make a color change at
         self._fmts:Dict[int,'_AnsiSettingPoint'] = {}
@@ -270,6 +271,11 @@ class AnsiString:
         Attempts to simplify formatting by re-parsing the ANSI formatting data. This will throw out any data internally
         determined as invalid and remove redundant settings.
         '''
+        # First remove any settings which are completely invalid
+        for point in self._fmts.values():
+            point.add = [x for x in point.add if x.valid]
+            point.rem = [x for x in point.rem if x.valid]
+        # Re-parse string
         self.set_ansi_str(str(self))
 
     def _shift_settings_idx(self, num:int, keep_origin:bool):
