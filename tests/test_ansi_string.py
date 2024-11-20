@@ -118,11 +118,17 @@ class AnsiStringTests(unittest.TestCase):
         s = AnsiString('This string contains custom formatting', '[38;2;175;95;95')
         self.assertEqual(str(s), '\x1b[38;2;175;95;95mThis string contains custom formatting\x1b[m')
         self.assertTrue(s.is_optimizable()) # Optimizable because this was a valid settings group
+        # Simplification should not change anything
+        s.simplify()
+        self.assertEqual(str(s), '\x1b[38;2;175;95;95mThis string contains custom formatting\x1b[m')
+        self.assertTrue(s.is_optimizable())
 
     def test_custom_formatting2(self):
-        s = AnsiString('This string contains custom formatting', '[38;10;175;95;95')
-        self.assertEqual(str(s), '\x1b[38;10;175;95;95mThis string contains custom formatting\x1b[m')
-        self.assertFalse(s.is_optimizable()) # Not optimizable because "10" is an invalid value
+        s = AnsiString('This string contains custom formatting', '[38')
+        self.assertEqual(str(s), '\x1b[38mThis string contains custom formatting\x1b[m')
+        self.assertFalse(s.is_optimizable()) # Not optimizable because code 38 should be followed by at least 1 value
+        s.simplify()
+        self.assertEqual(str(s), 'This string contains custom formatting')
 
     def test_custom_formatting3(self):
         # Will be used verbatim and won't throw an exception because it starts with '['

@@ -24,7 +24,8 @@
 
 from typing import Any, Union, List, Dict, Tuple
 from .ansi_format import (
-    ansi_sep, ansi_graphic_rendition_code_end, ansi_control_sequence_introducer, ansi_term_ord_range, AnsiSetting
+    ansi_sep, ansi_graphic_rendition_code_end, ansi_control_sequence_introducer, ansi_term_ord_range, AnsiSetting,
+    _AnsiControlFn
 )
 from .ansi_param import AnsiParam, AnsiParamEffect, AnsiParamEffectFn
 
@@ -103,36 +104,39 @@ def parse_graphic_sequence(
         items = [item.strip() for item in sequence.split(ansi_sep)]
     else:
         items = sequence
-    idx = 0
+    # Attempt to make each value an integer
+    for idx, value in enumerate(items):
+        try:
+            items[idx] = int(value)
+        except ValueError:
+            pass
+
     left_in_set = 0
     current_set = []
-    while idx < len(items):
-        try:
-            int_value = int(items[idx])
-        except:
-            int_value = None
-        finally:
+    for idx, value in enumerate(items):
+        if isinstance(value, int):
             if not current_set:
                 left_in_set = 1
-                if (
-                    int_value == AnsiParam.FG_SET.value or
-                    int_value == AnsiParam.BG_SET.value or
-                    int_value == AnsiParam.SET_UNDERLINE_COLOR.value
-                ):
-                    if idx + 1 < len(items):
-                        if str(items[idx + 1]) == "5":
-                            left_in_set = 3
-                        elif str(items[ idx + 1]) == "2":
-                            left_in_set = 5
-            if int_value:
-                current_set.append(int_value)
+                # Check all know multi-code functions for expected items in set
+                fn_set = False
+                fn_found = False
+                for fn in _AnsiControlFn:
+                    if items[idx : idx+len(fn.setup_seq)] == fn.setup_seq:
+                        left_in_set = fn.total_seq_count
+                        fn_set = True
+                    elif value == fn.setup_seq[0]:
+                        fn_found = True
+                if fn_found and not fn_set and not add_dangling:
+                    # Skip this value - it's a function code that doesn't supply a valid setup sequence
+                    continue
+            if value:
+                current_set.append(value)
             else:
                 current_set.append(items[idx])
             left_in_set -= 1
             if left_in_set <= 0:
                 output.append(AnsiSetting(current_set))
                 current_set = []
-        idx += 1
     if current_set and add_dangling:
         output.append(AnsiSetting(current_set))
     return output

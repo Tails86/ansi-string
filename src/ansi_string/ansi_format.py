@@ -123,10 +123,17 @@ class AnsiSetting:
             return False
 
         # Check all know multi-code functions for valid length
+        fn_found = False
         for fn in _AnsiControlFn:
             if codes[0:len(fn.setup_seq)] == fn.setup_seq:
                 self._parsable = (len(codes) == fn.total_seq_count)
                 return self._parsable
+            elif codes[0] == fn.setup_seq[0]:
+                fn_found = True
+
+        # Function code was found but didn't match any setup sequence
+        if fn_found:
+            return False
 
         # Otherwise, the length must be 1
         self._parsable = (len(codes) == 1)
