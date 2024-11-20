@@ -110,8 +110,9 @@ class AnsiStringTests(unittest.TestCase):
         self.assertTrue(s.is_optimizable())
 
     def test_using_list_of_various(self):
-        s = AnsiString('Lots of formatting!', ['[1', AnsiFormat.UL_RED, 48, 2, 175, 95, 95, 'rgb(0x12A03F);ul_white'])
-        self.assertEqual(str(s), '\x1b[1;4;58;5;9;48;2;175;95;95;38;2;18;160;63;4;58;5;15mLots of formatting!\x1b[m')
+        # Note: using '[1;1' ensures the output won't be optimized
+        s = AnsiString('Lots of formatting!', ['[1;1', AnsiFormat.UL_RED, 48, 2, 175, 95, 95, 'rgb(0x12A03F);ul_white'])
+        self.assertEqual(str(s), '\x1b[1;1;4;58;5;9;48;2;175;95;95;38;2;18;160;63;4;58;5;15mLots of formatting!\x1b[m')
 
     def test_custom_formatting(self):
         s = AnsiString('This string contains custom formatting', '[38;2;175;95;95')

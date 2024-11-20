@@ -20,6 +20,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+# This file contains types and functions which help build ANSI escape code strings
+
 import re
 import math
 from typing import Any, Union, List, Dict, Tuple
@@ -29,8 +31,9 @@ from .ansi_format import (
     ansi_control_sequence_introducer, ansi_graphic_rendition_format, ansi_escape_clear,
     ansi_graphic_rendition_code_end
 )
+from .ansi_parsing import ParsedAnsiControlSequenceString, parse_graphic_sequence, settings_to_dict
 
-__version__ = '1.1.4'
+__version__ = '1.1.5'
 PACKAGE_NAME = 'ansi-string'
 
 # Constant: all characters considered to be whitespaces - this is used in strip functionality
@@ -130,131 +133,6 @@ def scroll_down_str(n:int) -> str:
     Returns a string which will scroll the whole page down when printed to stdout.
     '''
     return ansi_control_sequence_introducer + str(n) + 'T'
-
-class AnsiControlSequence:
-    def __init__(self, sequence:str, ender:str):
-        self.sequence = sequence
-        self.ender = ender
-
-    def is_ender_valid(self) -> bool:
-        return (len(self.ender) == 1 and ord(self.ender) >= 0x40 and ord(self.ender) <= 0x7E)
-
-    def is_graphic(self) -> bool:
-        return self.ender == ansi_graphic_rendition_code_end
-
-class ParsedAnsiControlSequenceString:
-    def __init__(self, s:str, allow_empty_ender:str=True, acceptable_enders:str=None):
-        self._s = ''
-        self.sequences:Dict[int,AnsiControlSequence] = {}
-        i = 0
-        while i < len(s):
-            if s[i:i+len(ansi_control_sequence_introducer)] == ansi_control_sequence_introducer:
-                # This is the start of a Control Sequence Introducer command
-                i += len(ansi_control_sequence_introducer)
-                current_seq = ''
-                while i < len(s) and (ord(s[i]) < 0x40 or ord(s[i]) > 0x7E):
-                    current_seq += s[i]
-                    i += 1
-                ender = ''
-                if i < len(s):
-                    ender = s[i]
-                    i += 1
-                if (ender or allow_empty_ender) and (acceptable_enders is None or ender in acceptable_enders):
-                    self.sequences[len(self._s)] = AnsiControlSequence(current_seq, ender)
-                else:
-                    # Put it all back into string
-                    self._s += (ansi_control_sequence_introducer + current_seq + ender)
-            else:
-                self._s += s[i]
-                i += 1
-
-    def __str__(self) -> str:
-        return self.formatted_str()
-
-    def __repr__(self) -> str:
-        return self.formatted_str()
-
-    @property
-    def formatted_str(self) -> str:
-        out_str = ''
-        last_ender = ''
-        last_idx = 0
-        for key, value in self.sequences.items():
-            out_str += self._s[last_idx:key] + last_ender
-            out_str += ansi_control_sequence_introducer + value.sequence
-            last_ender = value.ender
-            last_idx = key
-        out_str += self._s[last_idx:] + last_ender
-        return out_str
-
-    @property
-    def unformatted_str(self) -> str:
-        return self._s
-
-def _parse_graphic_sequence(
-    sequence:Union[str,List[Union[int,str]]],
-    add_dangling:bool=False
-) -> List[AnsiSetting]:
-    if not sequence:
-        return [AnsiSetting(AnsiParam.RESET.value)]
-    output = []
-    if isinstance(sequence, str):
-        items = [item.strip() for item in sequence.split(ansi_sep)]
-    else:
-        items = sequence
-    idx = 0
-    left_in_set = 0
-    current_set = []
-    while idx < len(items):
-        try:
-            int_value = int(items[idx])
-        except:
-            int_value = None
-        finally:
-            if not current_set:
-                left_in_set = 1
-                if (
-                    int_value == AnsiParam.FG_SET.value or
-                    int_value == AnsiParam.BG_SET.value or
-                    int_value == AnsiParam.SET_UNDERLINE_COLOR.value
-                ):
-                    if idx + 1 < len(items):
-                        if str(items[idx + 1]) == "5":
-                            left_in_set = 3
-                        elif str(items[ idx + 1]) == "2":
-                            left_in_set = 5
-            if int_value:
-                current_set.append(int_value)
-            else:
-                current_set.append(items[idx])
-            left_in_set -= 1
-            if left_in_set <= 0:
-                output.append(AnsiSetting(current_set))
-                current_set = []
-        idx += 1
-    if current_set and add_dangling:
-        output.append(AnsiSetting(current_set))
-    return output
-
-def _settings_to_dict(
-    settings:List[AnsiSetting],
-    old_settings_dict:Dict[AnsiParamEffect, AnsiSetting]
-) -> Dict[AnsiParamEffect, AnsiSetting]:
-    settings_dict:Dict[AnsiParamEffect, AnsiSetting] = dict(old_settings_dict)
-    for setting in settings:
-        initial_param = setting.get_initial_param()
-        if initial_param is not None:
-            effect = initial_param.effect_type
-            effect_fn = initial_param.effect_fn
-            if effect_fn == AnsiParamEffectFn.APPLY_SETTING:
-                settings_dict[effect] = setting
-            elif effect_fn == AnsiParamEffectFn.CLEAR_SETTING:
-                if effect in settings_dict:
-                    del settings_dict[effect]
-            else:
-                # AnsiParamEffectFn.RESET_ALL assumed
-                settings_dict = {}
-    return settings_dict
 
 class AnsiString:
     '''
@@ -366,8 +244,8 @@ class AnsiString:
         for key, value in parsed_str.sequences.items():
             if key >= len(self._s):
                 break
-            settings = _parse_graphic_sequence(value.sequence)
-            new_settings = _settings_to_dict(settings, current_settings)
+            settings = parse_graphic_sequence(value.sequence)
+            new_settings = settings_to_dict(settings, current_settings)
             settings_to_remove = []
             settings_to_apply = []
             old_settings = current_settings
@@ -868,7 +746,7 @@ class AnsiString:
             codes_str = ansi_sep.join(settings_to_apply)
             if optimize:
                 old_settings_dict = current_settings_dict
-                new_settings_dict = _settings_to_dict(current_settings, {})
+                new_settings_dict = settings_to_dict(current_settings, {})
                 current_settings_dict = new_settings_dict
                 settings_to_apply = []
                 for key in old_settings_dict.keys():
@@ -1813,13 +1691,13 @@ class _AnsiSettingPoint:
                 del settings_out[idx]
             else:
                 if current_ints:
-                    new_seq = _parse_graphic_sequence(current_ints, True)
+                    new_seq = parse_graphic_sequence(current_ints, True)
                     settings_out[idx:idx] = new_seq
                     idx += len(new_seq)
                     current_ints = []
                 idx += 1
         if current_ints:
-            settings_out += _parse_graphic_sequence(current_ints, True)
+            settings_out += parse_graphic_sequence(current_ints, True)
 
         return settings_out
 

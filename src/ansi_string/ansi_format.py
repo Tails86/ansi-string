@@ -1,3 +1,27 @@
+# MIT License
+#
+# Copyright (c) 2024 James Smith
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+# This file defines all of the functions and formatting of ANSI parameters
+
 from enum import Enum, auto as enum_auto
 from typing import Any, Union, List, Dict, Tuple
 from .ansi_param import AnsiParam, AnsiParamEffect
@@ -47,6 +71,10 @@ class AnsiSetting:
 
     @property
     def parsable(self) -> bool:
+        '''
+        Returns True iff this setting group is parsable against all internally known codes and functions, is not an
+        empty string, and is not a RESET directive.
+        '''
         codes = self.to_list()
 
         # At least 1 code must be found, and first value must not be reset
@@ -60,23 +88,16 @@ class AnsiSetting:
 
         # First code must be a known parameter
         try:
-            initial_param = AnsiParam(codes[0])
+            AnsiParam(codes[0])
         except ValueError:
             return False
 
-        # Check expected number of elements
-        if (
-            initial_param == AnsiParam.FG_SET or
-            initial_param == AnsiParam.BG_SET or
-            initial_param == AnsiParam.SET_UNDERLINE_COLOR
-        ):
-            if len(codes) < 2:
-                return False
-            elif codes[1] == 5:
-                return len(codes) == 3
-            elif codes[1] == 2:
-                return len(codes) == 5
+        # Check all know multi-code functions for valid length
+        for fn in _AnsiControlFn:
+            if codes[0:len(fn.setup_seq)] == fn.setup_seq:
+                return len(codes) == fn.total_seq_count
 
+        # Otherwise, the length must be 1
         return len(codes) == 1
 
     def to_list(self) -> List[Union[int, str]]:
@@ -158,13 +179,14 @@ class _AnsiControlFn(Enum):
         setup_seq - control sequence which addresses the function
         num_args - the number of arguments expected for the function
         '''
-        self._setup_seq = setup_seq
-        self._num_args = num_args
+        self.setup_seq = setup_seq
+        self.num_args = num_args
+        self.total_seq_count = len(setup_seq) + num_args
 
     def fn(self, *args) -> List[int]:
-        if len(args) != self._num_args:
-            raise ValueError(f'Invalid number of arguments: {len(args)}; expected: {self._num_args}')
-        return self._setup_seq + list(args)
+        if len(args) != self.num_args:
+            raise ValueError(f'Invalid number of arguments: {len(args)}; expected: {self.num_args}')
+        return self.setup_seq + list(args)
 
     @staticmethod
     def rgb(
