@@ -255,28 +255,30 @@ The AnsiString and AnsiStr classes contains the following `__init__` method.
 
 The first argument, `s`, is a string to be formatted. If this string contains ANSI directives, they will be parsed and added into the internal format dictionary. The next 0 to N arguments are formatting setting directives that can be applied to the entire string. These arguments can be in the form of any of the following.
 
-- An AnsiFormat enum (ex: `AnsiFormat.BOLD`)
-- The result of calling `AnsiFormat.rgb()`, `AnsiFormat.fg_rgb()`, `AnsiFormat.bg_rgb()`,
-    `AnsiFormat.ul_rgb()`, or `AnsiFormat.dul_rgb()`
-- A string color or formatting name (i.e. any name of the AnsiFormat enum in lower or upper case)
-- An `rgb(...)` function directive as a string (ex: `"rgb(255, 255, 255)"`)
-    - `rgb(...)` or `fg_rgb(...)` to adjust text color
-    - `bg_rgb(...)` to adjust background color
-    - `ul_rgb(...)` to enable underline and set the underline color
-    - `dul_rgb(...)` to enable double underline and set the underline color
-    - Value given may be either a 24-bit integer or 3 x 8-bit integers, separated by commas
-    - Each given value within the parenthesis is treated as hexadecimal if the value starts with "0x",
-        otherwise it is treated as a decimal value
-- A string containing known ANSI directives (ex: `"01;31"` for BOLD and FG_RED)
-    - Only non-negative integers are valid; all other values will cause a ValueError exception
-    - This string will be parsed to determine if optimizable (see is_optimizable())
-    - To subsequently force invalid/redundant values to be thrown out, call simplify()
-- Integer values which will be parsed in a similar way to above string ANSI directives
+- The following setting types are guaranteed to be valid, optimizable, and won't throw an exception
+    - An AnsiFormat enum (ex: `AnsiFormat.BOLD`)
+    - The result of calling `AnsiFormat.rgb()`, `AnsiFormat.fg_rgb()`, `AnsiFormat.bg_rgb()`,
+        `AnsiFormat.ul_rgb()`, or `AnsiFormat.dul_rgb()`
+- The following setting types are parsed and may throw and exception if they are invalid
+    - A string color or formatting name (i.e. any name of the AnsiFormat enum in lower or upper case)
+    - An `rgb(...)` function directive as a string (ex: `"rgb(255, 255, 255)"`)
+        - `rgb(...)` or `fg_rgb(...)` to adjust text color
+        - `bg_rgb(...)` to adjust background color
+        - `ul_rgb(...)` to enable underline and set the underline color
+        - `dul_rgb(...)` to enable double underline and set the underline color
+        - Value given may be either a 24-bit integer or 3 x 8-bit integers, separated by commas
+        - Each given value within the parenthesis is treated as hexadecimal if the value starts with "0x",
+            otherwise it is treated as a decimal value
+    - A string containing known ANSI directives (ex: `"01;31"` for BOLD and FG_RED)
+        - Only non-negative integers are valid; all other values will cause a ValueError exception
+    - Integer values which will be parsed in a similar way to above string ANSI directives
+- The following setting types will be used verbatim as the ANSI graphics code and no exceptions will be thrown (handle with care)
+    - An `AnsiSetting` object generated outside of `AnsiFormat` function calls
+        - It is advised to check AnsiSetting.valid to ensure settings don't terminate the escape sequence
+    - A string which starts with the character `"["` plus ANSI directives (ex: `"[38;5;214"`)
 
-A setting may also be any of the following. These are not advised because they will be used verbatim,
-no exceptions will be thrown, and optimization of codes on string output will not occur.
-- An AnsiSetting object
-- A string which starts with the character `"["` plus ANSI directives (ex: `"[38;5;214"`)
+Hint: After creation, `is_optimizable()` can be called to determine if all settings are parsable. Call
+`simplify()` in order to subsequently force invalid or redundant values to be thrown out.
 
 Examples:
 
@@ -331,14 +333,19 @@ print(s)
 
 #### Format String
 
-A format string may be used to format an AnsiString before printing. The format specification string must be in the format `"[string_format][:ansi_format]"` where `string_format` is the standard string format specifier and `ansi_format` contains 0 or more ANSI directives separated by semicolons (;). The ANSI directives may be any of the same string values that can be passed to the `AnsiString` constructor. If no `string_format` is desired, then it can be set to an empty string. This same functionality is available in `AnsiStr`.
+A format string may be used to format an AnsiString before printing. The format specification string must be in the format `"[string_format[:ansi_format]]"` where `string_format` is an extension of the standard string format specifier and `ansi_format` contains 0 or more ANSI directives separated by semicolons (;). The ANSI directives may be any of the same string values that can be passed to the `AnsiString` constructor. If no `string_format` is desired, then it can be set to an empty string. This same functionality is available in `AnsiStr`.
 
 Examples:
 
 ```py
 ansi_str = AnsiString("This is an ANSI string")
-# Right justify with width of 100, formatted bold and red
-print("{:>100:bold;red}".format(ansi_str))
+# Right justify with width of 100, formatted with underline and colored red.
+# By default, all fill characters will take on the first character's formatting.
+print("{:>100:underline;red}".format(ansi_str))
+# The space character after the colon is the fill character. The following minus
+# sign means that the fill character won't take on the first character's
+# formatting like it did above.
+print("{: ->100:underline;red}".format(ansi_str))
 # No justification settings, formatted bold and red
 print("{::bold;red}".format(ansi_str))
 # No justification settings, formatted bold and red

@@ -154,29 +154,30 @@ class AnsiString:
         Parameters:
         s - The underlying string or an AnsiString to copy from; incoming strings will be parsed for ANSI directives
         settings - setting(s) in any of the listed formats below
-            - An AnsiFormat enum (ex: `AnsiFormat.BOLD`)
-            - The result of calling `AnsiFormat.rgb()`, `AnsiFormat.fg_rgb()`, `AnsiFormat.bg_rgb()`,
-              `AnsiFormat.ul_rgb()`, or `AnsiFormat.dul_rgb()`
+        - The following setting types are guaranteed to be valid, optimizable, and won't throw an exception
+            - An AnsiFormat enum (ex: AnsiFormat.BOLD)
+            - The result of calling AnsiFormat.rgb(), AnsiFormat.fg_rgb(), AnsiFormat.bg_rgb(),
+              AnsiFormat.ul_rgb(), or AnsiFormat.dul_rgb()
+        - The following setting types are parsed and may throw and exception if they are invalid
             - A string color or formatting name (i.e. any name of the AnsiFormat enum in lower or upper case)
-            - An `rgb(...)` function directive as a string (ex: `"rgb(255, 255, 255)"`)
-                - `rgb(...)` or `fg_rgb(...)` to adjust text color
-                - `bg_rgb(...)` to adjust background color
-                - `ul_rgb(...)` to enable underline and set the underline color
-                - `dul_rgb(...)` to enable double underline and set the underline color
+            - An rgb(...) function directive as a string (ex: "rgb(255, 255, 255)")
+                - rgb(...) or fg_rgb(...) to adjust text color
+                - bg_rgb(...) to adjust background color
+                - ul_rgb(...) to enable underline and set the underline color
+                - dul_rgb(...) to enable double underline and set the underline color
                 - Value given may be either a 24-bit integer or 3 x 8-bit integers, separated by commas
                 - Each given value within the parenthesis is treated as hexadecimal if the value starts with "0x",
                   otherwise it is treated as a decimal value
-            - A string containing known ANSI directives (ex: `"01;31"` for BOLD and FG_RED)
+            - A string containing known ANSI directives (ex: "01;31" for BOLD and FG_RED)
                 - Only non-negative integers are valid; all other values will cause a ValueError exception
             - Integer values which will be parsed in a similar way to above string ANSI directives
+        - The following setting types will be used verbatim as the ANSI graphics code and no exceptions will be thrown
+            - An AnsiSetting object generated outside of AnsiFormat function calls
+                - It is advised to check AnsiSetting.valid to ensure settings don't terminate the escape sequence
+            - A string which starts with the character "[" plus ANSI directives (ex: "[38;5;214")
 
-        A setting may also be any of the following. These are not advised because they will be used verbatim and
-        no exceptions will be thrown.
-            - An AnsiSetting object
-            - A string which starts with the character `"["` plus ANSI directives (ex: `"[38;5;214"`)
-
-        After creation, check is_optimization() to determine if all settings were internally parsable. Call simplify()
-        in order to subsequently force invalid or redundant values to be thrown out.
+        Hint: After creation, is_optimizable() can be called to determine if all settings are parsable. Call
+        simplify() in order to subsequently force invalid or redundant values to be thrown out.
         '''
         # Key is the string index to make a color change at
         self._fmts:Dict[int,'_AnsiSettingPoint'] = {}
