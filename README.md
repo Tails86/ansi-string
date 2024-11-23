@@ -41,7 +41,7 @@ s = AnsiString('This string is red and bold', AnsiFormat.BOLD, AnsiFormat.RED)
 print(s)
 ```
 Output:
-![Example 1 Output](https://raw.githubusercontent.com/Tails86/ansi-string/32d5b2fed1c1ac061a5382b80faa65bbf794290c/docs/out1.png)
+![Example 1 Output](https://raw.githubusercontent.com/Tails86/ansi-string/8db7c31ec5cd4816db8879665e2378469a0b90bf/docs/out1.png)
 
 ### Example 2
 
@@ -57,7 +57,7 @@ s.apply_formatting(AnsiFormat.FG_BLUE, 21, 44, topmost=False)
 print(s)
 ```
 Output:
-![Example 2 Output](https://raw.githubusercontent.com/Tails86/ansi-string/32d5b2fed1c1ac061a5382b80faa65bbf794290c/docs/out2.png)
+![Example 2 Output](https://raw.githubusercontent.com/Tails86/ansi-string/8db7c31ec5cd4816db8879665e2378469a0b90bf/docs/out2.png)
 
 ### Example 3
 
@@ -70,7 +70,7 @@ s = AnsiString('This string will be formatted bold and red, right justify')
 print('{:>90:bold;red}'.format(s))
 ```
 Output:
-![Example 3 Output](https://raw.githubusercontent.com/Tails86/ansi-string/32d5b2fed1c1ac061a5382b80faa65bbf794290c/docs/out3.png)
+![Example 3 Output](https://raw.githubusercontent.com/Tails86/ansi-string/8db7c31ec5cd4816db8879665e2378469a0b90bf/docs/out3.png)
 
 ### Example 4
 
@@ -82,7 +82,7 @@ s = AnsiString('This string will be formatted bold and red')
 print('{::bold;red}'.format(s))
 ```
 Output:
-![Example 4 Output](https://raw.githubusercontent.com/Tails86/ansi-string/32d5b2fed1c1ac061a5382b80faa65bbf794290c/docs/out4.png)
+![Example 4 Output](https://raw.githubusercontent.com/Tails86/ansi-string/8db7c31ec5cd4816db8879665e2378469a0b90bf/docs/out4.png)
 
 ### Example 5
 
@@ -95,7 +95,7 @@ s2 = AnsiString('This is an ANSI string')
 print(f'String 1: "{s1}" String 2: "{s2::bold;purple}"')
 ```
 Output:
-![Example 5 Output](https://raw.githubusercontent.com/Tails86/ansi-string/32d5b2fed1c1ac061a5382b80faa65bbf794290c/docs/out5.png)
+![Example 5 Output](https://raw.githubusercontent.com/Tails86/ansi-string/8db7c31ec5cd4816db8879665e2378469a0b90bf/docs/out5.png)
 
 ### Example 6
 
@@ -123,7 +123,7 @@ s.unformat_matching('unformat') # don't specify any format to remove all formatt
 print(s)
 ```
 Output:
-![Example 7 Output](https://raw.githubusercontent.com/Tails86/ansi-string/32d5b2fed1c1ac061a5382b80faa65bbf794290c/docs/out7.png)
+![Example 7 Output](https://raw.githubusercontent.com/Tails86/ansi-string/8db7c31ec5cd4816db8879665e2378469a0b90bf/docs/out7.png)
 
 ### Example 8
 
@@ -138,7 +138,7 @@ for i, color in zip(range(len(s)), itertools.cycle(colors)):
 print(s)
 ```
 Output:
-![Example 8 Output](https://raw.githubusercontent.com/Tails86/ansi-string/9c30198d39e04f375d5b896bb3ec8a425a010297/docs/out8.png)
+![Example 8 Output](https://raw.githubusercontent.com/Tails86/ansi-string/8db7c31ec5cd4816db8879665e2378469a0b90bf/docs/out8.png)
 
 ## Usage
 
