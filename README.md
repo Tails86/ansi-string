@@ -157,7 +157,7 @@ en_tty_ansi(sys.stderr)
 
 For Windows, this returns True if the given IO is a TTY (i.e. not piped to a file) and enabling ANSI was successful. For all other operating systems, this will return True if and only if the given IO is a TTY (i.e. isatty()); no other action is taken.
 
-## AnsiString and AnsiStr
+## AnsiString and AnsiStr Classes
 
 This library contains both `AnsiString` and `AnsiStr`. An `AnsiString` is mutable while an `AnsiStr` is immutable, and any formatting changes to `AnsiStr` will create a new `AnsiStr` object rather than applying in-place. The only advantage of `AnsiStr` over `AnsiString` is that `isinstance(AnsiStr(), str)` will return `True`. This may be useful when the string object needs to be passable to functions and methods which explicitly checks if the given object is a string.
 
@@ -352,7 +352,7 @@ Many other methods that are found in the `str` class such as `replace()` are ava
 - upper
 - zfill
 
-## ParsedAnsiControlSequenceString
+## ParsedAnsiControlSequenceString Class
 
 The `ParsedAnsiControlSequenceString` class may be used to parse any ANSI control sequence string. Check the `sequences` attribute after creation for the parsed sequences. This is used internally to parse graphic control sequences from an incoming ANSI string into an `AnsiString`.
 
