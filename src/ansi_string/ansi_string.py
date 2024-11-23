@@ -726,8 +726,8 @@ class AnsiString:
                             ex: " ->10:bold;red" to not not apply formatting to justification characters
             optimize - optimization selects the shortest setting string based on the situation.
                        If this is False, then the RESET directive (0) will always used when settings change mid-string.
-            reset_start - when True, the output string will always start with the reset RESET directive (0)
-            reset_end - when True, the output string will end with the reset RESET directive (0) when at least 1 setting
+            reset_start - when True, the output string will always start with the RESET directive (0)
+            reset_end - when True, the output string will end with the RESET directive (0) when at least 1 setting
                         was applied by this AnsiString
         '''
         if not __format_spec and not self._fmts and not reset_start:
