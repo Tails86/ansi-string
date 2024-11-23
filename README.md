@@ -138,7 +138,7 @@ for i, color in zip(range(len(s)), itertools.cycle(colors)):
 print(s)
 ```
 Output:
-![Example 8 Output](https://raw.githubusercontent.com/Tails86/ansi-string/9c30198d39e04f375d5b896bb3ec8a425a010297/docs/out7.png)
+![Example 8 Output](https://raw.githubusercontent.com/Tails86/ansi-string/9c30198d39e04f375d5b896bb3ec8a425a010297/docs/out8.png)
 
 ## Usage
 
@@ -163,7 +163,7 @@ This library contains both `AnsiString` and `AnsiStr`. An `AnsiString` is mutabl
 
 ### Construction
 
-The `AnsiString` and `AnsiStr` classes contains the following `__init__` method.
+The `AnsiString` and `AnsiStr` classes contain the following `__init__` method.
 
 ```py
 def __init__(self, s:Union[str,'AnsiString','AnsiStr']='', *settings:Union[AnsiFormat, AnsiSetting, str, int, list, tuple]): ...
@@ -224,7 +224,7 @@ print(s)
 
 ### Apply Formatting
 
-The method `apply_formatting()` is provided to append formatting to a previously constructed `AnsiString`.
+The method `apply_formatting()` is provided to apply formatting to a set range of characters.
 
 Example:
 
