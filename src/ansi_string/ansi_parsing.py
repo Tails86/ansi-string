@@ -24,30 +24,44 @@
 
 from typing import Any, Union, List, Dict, Tuple
 from .ansi_format import (
-    ansi_sep, ansi_graphic_rendition_code_end, ansi_control_sequence_introducer, ansi_term_ord_range, AnsiSetting,
-    _AnsiControlFn
+    ansi_sep, ansi_graphic_rendition_code_end, ansi_graphic_rendition_code_terminator, ansi_control_sequence_introducer,
+    ansi_term_ord_range, AnsiSetting, _AnsiControlFn
 )
 from .ansi_param import AnsiParam, AnsiParamEffect, AnsiParamEffectFn
 
 class AnsiControlSequence:
-    def __init__(self, sequence:str, ender:str):
+    '''
+    Contains a control sequence definition.
+    '''
+    def __init__(self, sequence:str, terminator:str):
         self.sequence = sequence
-        self.ender = ender
+        self.terminator = terminator
 
-    def is_ender_valid(self) -> bool:
+    def is_terminator_valid(self) -> bool:
         return (
-            len(self.ender) == 1 and
-            ord(self.ender) >= ansi_term_ord_range[0] and
-            ord(self.ender) <= ansi_term_ord_range[1]
+            len(self.terminator) == 1 and
+            ord(self.terminator) >= ansi_term_ord_range[0] and
+            ord(self.terminator) <= ansi_term_ord_range[1]
         )
 
     def is_graphic(self) -> bool:
-        return self.ender == ansi_graphic_rendition_code_end
+        return self.terminator == ansi_graphic_rendition_code_terminator
 
 class ParsedAnsiControlSequenceString:
-    def __init__(self, s:str, allow_empty_ender:str=True, acceptable_enders:str=None):
+    '''
+    Contains a string parsed as an ANSI control sequence string.
+    '''
+    def __init__(self, s:str, allow_empty_terminator:str=True, acceptable_terminators:str=None):
+        '''
+        Initializer
+        Parameters:
+            s - input string
+            allow_empty_terminator - allow a string that is not terminated to be counted as a control sequence
+            acceptable_terminators - acceptable string of terminators (default: all acceptable)
+        '''
         self._s = ''
-        self.sequences:Dict[int,AnsiControlSequence] = {}
+        # Dictionary mapping index to a list of applied control sequences for that index
+        self.sequences:Dict[int,List[AnsiControlSequence]] = {}
         i = 0
         while i < len(s):
             if s[i:i+len(ansi_control_sequence_introducer)] == ansi_control_sequence_introducer:
@@ -57,46 +71,72 @@ class ParsedAnsiControlSequenceString:
                 while i < len(s) and (ord(s[i]) < ansi_term_ord_range[0] or ord(s[i]) > ansi_term_ord_range[1]):
                     current_seq += s[i]
                     i += 1
-                ender = ''
+                terminator = ''
                 if i < len(s):
-                    ender = s[i]
+                    terminator = s[i]
                     i += 1
-                if (ender or allow_empty_ender) and (acceptable_enders is None or ender in acceptable_enders):
-                    self.sequences[len(self._s)] = AnsiControlSequence(current_seq, ender)
+                if (terminator or allow_empty_terminator) and (acceptable_terminators is None or terminator in acceptable_terminators):
+                    current_csi = AnsiControlSequence(current_seq, terminator)
+                    idx = len(self._s)
+                    if idx in self.sequences:
+                        self.sequences[idx].append(current_csi)
+                    else:
+                        self.sequences[idx] = [current_csi]
                 else:
                     # Put it all back into string
-                    self._s += (ansi_control_sequence_introducer + current_seq + ender)
+                    self._s += (ansi_control_sequence_introducer + current_seq + terminator)
             else:
                 self._s += s[i]
                 i += 1
 
     def __str__(self) -> str:
+        '''
+        Returns the formatted string
+        '''
         return self.formatted_str()
 
     def __repr__(self) -> str:
+        '''
+        Returns the formatted string
+        '''
         return self.formatted_str()
 
     @property
     def formatted_str(self) -> str:
+        '''
+        Returns the formatted string
+        '''
         out_str = ''
-        last_ender = ''
+        last_terminator = ''
         last_idx = 0
-        for key, value in self.sequences.items():
-            out_str += self._s[last_idx:key] + last_ender
-            out_str += ansi_control_sequence_introducer + value.sequence
-            last_ender = value.ender
-            last_idx = key
-        out_str += self._s[last_idx:] + last_ender
+        for key, value_list in self.sequences.items():
+            for value in value_list:
+                out_str += self._s[last_idx:key] + last_terminator
+                out_str += ansi_control_sequence_introducer + value.sequence
+                last_terminator = value.terminator
+                last_idx = key
+        out_str += self._s[last_idx:] + last_terminator
         return out_str
 
     @property
     def unformatted_str(self) -> str:
+        '''
+        Returns the unformatted string
+        '''
         return self._s
 
 def parse_graphic_sequence(
     sequence:Union[str,List[Union[int,str]]],
     add_erroneous:bool=False
 ) -> List[AnsiSetting]:
+    '''
+    Parses an ANSI graphic sequence into a list of AnsiSettings.
+    Parameters:
+        sequence - the sequence to parse as semicolon-separated string or list of elements
+        add_erroneous - Set to True to add items whose function could not be determined
+    Returns a list of AnsiSettings. These settings will be guaranteed to be valid and parsable if
+    add_erroneous is set to False.
+    '''
     if not sequence:
         return [AnsiSetting(AnsiParam.RESET.value)]
     output = []
@@ -146,8 +186,14 @@ def parse_graphic_sequence(
 
 def settings_to_dict(
     settings:List[AnsiSetting],
-    old_settings_dict:Dict[AnsiParamEffect, AnsiSetting]
+    old_settings_dict:Dict[AnsiParamEffect, AnsiSetting] = {}
 ) -> Dict[AnsiParamEffect, AnsiSetting]:
+    '''
+    Converts a list of settings into a dictionary which keys off of an effect type.
+    Parameters:
+        settings - the list of settings to parse
+        old_settings_dict - the dictionary to update from
+    '''
     settings_dict:Dict[AnsiParamEffect, AnsiSetting] = dict(old_settings_dict)
     for setting in settings:
         initial_param = setting.get_initial_param()

@@ -33,9 +33,10 @@ ansi_escape = '\x1b'
 # The start of an ANSI control sequence
 ansi_control_sequence_introducer = ansi_escape + '['
 # The last character of the ANSI control sequence
-ansi_graphic_rendition_code_end = 'm'
+ansi_graphic_rendition_code_terminator = 'm'
+ansi_graphic_rendition_code_end = ansi_graphic_rendition_code_terminator # old name
 # The escape sequence that needs to be formatted with command str
-ansi_graphic_rendition_format = ansi_control_sequence_introducer + '{}' + ansi_graphic_rendition_code_end
+ansi_graphic_rendition_format = ansi_control_sequence_introducer + '{}' + ansi_graphic_rendition_code_terminator
 # The escape sequence which will clear all previous formatting (empty command is same as 0)
 ansi_escape_clear = ansi_graphic_rendition_format.format('')
 

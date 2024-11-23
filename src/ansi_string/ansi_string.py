@@ -25,15 +25,15 @@
 import re
 import math
 from typing import Any, Union, List, Dict, Tuple
-from .ansi_param import AnsiParam, AnsiParamEffect, AnsiParamEffectFn, EFFECT_CLEAR_DICT
+from .ansi_param import AnsiParam, AnsiParamEffect, EFFECT_CLEAR_DICT
 from .ansi_format import (
     AnsiFormat, AnsiSetting, ColorComponentType, ColourComponentType, ansi_sep, ansi_escape,
     ansi_control_sequence_introducer, ansi_graphic_rendition_format, ansi_escape_clear,
-    ansi_graphic_rendition_code_end
+    ansi_graphic_rendition_code_end, ansi_graphic_rendition_code_terminator
 )
 from .ansi_parsing import ParsedAnsiControlSequenceString, parse_graphic_sequence, settings_to_dict
 
-__version__ = '1.1.6'
+__version__ = '1.1.7'
 PACKAGE_NAME = 'ansi_string'
 
 # Constant: all characters considered to be whitespaces - this is used in strip functionality
@@ -154,7 +154,7 @@ class AnsiString:
         Parameters:
         s - The underlying string or an AnsiString to copy from; incoming strings will be parsed for ANSI directives
         settings - setting(s) in any of the listed formats below
-        - The following setting types are guaranteed to be valid, optimizable, and won't throw an exception
+        - The following setting types are guaranteed to be valid, optimizable, and won't throw any exception
             - An AnsiFormat enum (ex: AnsiFormat.BOLD)
             - The result of calling AnsiFormat.rgb(), AnsiFormat.fg_rgb(), AnsiFormat.bg_rgb(),
               AnsiFormat.ul_rgb(), or AnsiFormat.dul_rgb()
@@ -172,9 +172,10 @@ class AnsiString:
                 - Only non-negative integers are valid; all other values will cause a ValueError exception
             - Integer values which will be parsed in a similar way to above string ANSI directives
         - The following setting types will be used verbatim as the ANSI graphics code and no exceptions will be thrown
-            - An AnsiSetting object generated outside of AnsiFormat function calls
+            - An AnsiSetting object generated using a string
                 - It is advised to check AnsiSetting.valid to ensure settings don't terminate the escape sequence
             - A string which starts with the character "[" plus ANSI directives (ex: "[38;5;214")
+                - This will internally wrap the substring after the "[" character into an AnsiSetting
 
         Hint: After creation, is_formatting_parsable() can be called to determine if all settings are parsable. Call
         simplify() in order to force invalid or redundant values to be thrown out.
@@ -240,32 +241,39 @@ class AnsiString:
         '''
         s = str(s) # In case this is an AnsiStr, get the raw string rather than its overrides
         current_settings:Dict[AnsiParamEffect, AnsiSetting] = {}
-        parsed_str = ParsedAnsiControlSequenceString(s, False, ansi_graphic_rendition_code_end)
+        parsed_str = ParsedAnsiControlSequenceString(s, False, ansi_graphic_rendition_code_terminator)
         self._s = parsed_str.unformatted_str
         self._fmts = {}
-        for key, value in parsed_str.sequences.items():
-            if key >= len(self._s):
-                break
-            settings = parse_graphic_sequence(value.sequence)
-            new_settings = settings_to_dict(settings, current_settings)
-            settings_to_remove = []
-            settings_to_apply = []
-            old_settings = current_settings
-            current_settings = new_settings
-            for setting_key, setting_value in new_settings.items():
-                if setting_key in old_settings:
-                    if old_settings[setting_key] != setting_value:
-                        settings_to_remove.append(old_settings[setting_key])
+        for key, value_list in parsed_str.sequences.items():
+            for value in value_list:
+                if key >= len(self._s):
+                    break
+
+                # Parse current sequence, throwing out unparsable data
+                settings = parse_graphic_sequence(value.sequence, add_erroneous=False)
+
+                # Create new settings dictionary, starting from current settings and updating with new ones
+                new_settings = settings_to_dict(settings, current_settings)
+
+                # Remove old settings, apply new
+                settings_to_remove = []
+                settings_to_apply = []
+                old_settings = current_settings
+                current_settings = new_settings
+                for setting_key, setting_value in new_settings.items():
+                    if setting_key in old_settings:
+                        if old_settings[setting_key] != setting_value:
+                            settings_to_remove.append(old_settings[setting_key])
+                            settings_to_apply.append(setting_value)
+                    else:
                         settings_to_apply.append(setting_value)
-                else:
-                    settings_to_apply.append(setting_value)
-            for setting_key, setting_value in old_settings.items():
-                if setting_key not in new_settings:
-                    settings_to_remove.append(setting_value)
-            if settings_to_remove:
-                self.remove_formatting(settings_to_remove, key)
-            if settings_to_apply:
-                self.apply_formatting(settings_to_apply, key)
+                for setting_key, setting_value in old_settings.items():
+                    if setting_key not in new_settings:
+                        settings_to_remove.append(setting_value)
+                if settings_to_remove:
+                    self.remove_formatting(settings_to_remove, key)
+                if settings_to_apply:
+                    self.apply_formatting(settings_to_apply, key)
 
     def simplify(self):
         '''
@@ -691,7 +699,8 @@ class AnsiString:
 
     def is_formatting_parsable(self) -> bool:
         '''
-        Returns True iff all settings are valid and parsable into known ANSI codes.
+        Returns True iff all settings are valid and parsable into known ANSI codes. This will only ever be False if
+        the object was formatted using a custom AnsiSetting or with a string that started with the character "[".
         '''
         for fmt in self._fmts.values():
             for setting in fmt.add:
@@ -701,11 +710,11 @@ class AnsiString:
 
     def is_optimizable(self) -> bool:
         '''
-        Returns True if optimization of formatting settings can be performed i.e. formatting is parsable.
+        Returns True if optimization of formatting settings can be performed i.e. when formatting is parsable.
         '''
         return self.is_formatting_parsable()
 
-    def to_str(self, __format_spec:str=None, optimize:bool=True) -> str:
+    def to_str(self, __format_spec:str=None, optimize:bool=True, reset_start:bool=False, reset_end:bool=True) -> str:
         '''
         Returns an ANSI format string with both internal and given formatting spec set.
         Parameters:
@@ -715,9 +724,13 @@ class AnsiString:
                             ex: ">10:bold;red" to make output right justify with width of 10, bold and red formatting
                             No formatting should be applied as part of the justification, add a '-' after the fillchar.
                             ex: " ->10:bold;red" to not not apply formatting to justification characters
-            optimize - when true, attempt to optimize code strings
+            optimize - optimization selects the shortest setting string based on the situation.
+                       If this is False, then the RESET directive (0) will always used when settings change mid-string.
+            reset_start - when True, the output string will always start with the reset RESET directive (0)
+            reset_end - when True, the output string will end with the reset RESET directive (0) when at least 1 setting
+                        was applied by this AnsiString
         '''
-        if not __format_spec and not self._fmts:
+        if not __format_spec and not self._fmts and not reset_start:
             # No formatting
             return self._s
 
@@ -746,14 +759,20 @@ class AnsiString:
             # Check if optimization is possible
             optimize = obj.is_optimizable()
 
+        first_iter = True
         out_str = ''
         last_idx = 0
-        clear_needed = False
+        settings_exist = False
         current_settings_dict:Dict[AnsiParamEffect, AnsiSetting] = {}
         for idx, settings, current_settings in _AnsiSettingsIterator(obj._fmts):
             if idx >= len(obj):
                 # Invalid
                 break
+
+            if first_iter and idx > 0 and reset_start:
+                # Clear settings
+                out_str += ansi_escape_clear
+
             # Catch up output to current index
             out_str += obj._s[last_idx:idx]
             last_idx = idx
@@ -767,7 +786,7 @@ class AnsiString:
             codes_str = ansi_sep.join(settings_to_apply)
             if optimize:
                 old_settings_dict = current_settings_dict
-                new_settings_dict = settings_to_dict(current_settings, {})
+                new_settings_dict = settings_to_dict(current_settings)
                 current_settings_dict = new_settings_dict
                 settings_to_apply = []
                 for key in old_settings_dict.keys():
@@ -786,15 +805,21 @@ class AnsiString:
                 # This check is necessary because sometimes the optimization will actually create a longer string
                 elif len(optimized_codes_str) < len(codes_str):
                     codes_str = optimized_codes_str
+            if idx == 0 and reset_start:
+                codes_str = ansi_sep.join([str(AnsiParam.RESET.value), codes_str])
             # Apply these settings
             if apply_to_out_str:
                 out_str += ansi_graphic_rendition_format.format(codes_str)
             # Save this flag in case this is the last loop
-            clear_needed = bool(current_settings)
+            settings_exist = bool(current_settings)
+            first_iter = False
 
         # Final catch up
+        if first_iter and reset_start:
+            # Clear settings
+            out_str += ansi_escape_clear
         out_str += obj._s[last_idx:]
-        if clear_needed:
+        if settings_exist and reset_end:
             # Clear settings
             out_str += ansi_escape_clear
 
@@ -1856,7 +1881,7 @@ class AnsiStr(str):
         '''
         return self._s.is_optimizable()
 
-    def to_str(self, __format_spec:str=None, optimize:bool=True) -> str:
+    def to_str(self, __format_spec:str=None, optimize:bool=True, reset_start:bool=False, reset_end:bool=True) -> str:
         '''
         Returns an ANSI format string with both internal and given formatting spec set.
         Parameters:
@@ -1866,9 +1891,13 @@ class AnsiStr(str):
                             ex: ">10:bold;red" to make output right justify with width of 10, bold and red formatting
                             No formatting should be applied as part of the justification, add a '-' after the fillchar.
                             ex: " ->10:bold;red" to not not apply formatting to justification characters
-            optimize - when true, attempt to optimize code strings
+            optimize - optimization selects the shortest setting string based on the situation.
+                       If this is False, then the RESET directive (0) will always used when settings change mid-string.
+            reset_end - when True, the output string will end with the reset RESET directive (0) when at least 1 setting
+                        was applied by this AnsiString
+            reset_end - when True, the output string will always end with the reset RESET directive (0)
         '''
-        return self._s.to_str(__format_spec, optimize)
+        return self._s.to_str(__format_spec, optimize, reset_start, reset_end)
 
     def __format__(self, __format_spec:str) -> str:
         '''
@@ -1912,12 +1941,13 @@ class AnsiStr(str):
             topmost:bool=True
     ) -> 'AnsiStr':
         '''
-        Apply formatting using a match object generated from re into a new AnsiStr
+        Sets the formatting for a given range of characters.
         Parameters:
-            settings - setting or list of settings to apply to matching strings
-            match_object - the match object to use (result of re.search() or re.finditer())
-            group - match the group to set
-        Returns: a new AnsiStr
+            settings - setting or list of settings to apply
+            start - The string start index where setting(s) are to be applied
+            end - The string index where the setting(s) should be removed
+            topmost - When true, the settings placed at the end of the set for the given
+                      start_index, meaning it takes precedent over others; the opposite when False
         '''
         cpy = self._s.copy()
         cpy.apply_formatting(settings, start, end, topmost)

@@ -47,9 +47,9 @@ class AnsiStringTests(unittest.TestCase):
         self.assertTrue(s.is_optimizable())
 
     def test_from_ansi_string(self):
-        s = AnsiString('\x1b[32mabc\x1b[m')
-        self.assertEqual(str(s), '\x1b[32mabc\x1b[m')
-        self.assertEqual(s.base_str, 'abc')
+        s = AnsiString('\x1b[1;31;32ma\x1b[33mb\x1b[22;34mc\x1b[34m\x1b[0;35md\x1b[3m\x1b[1me\x1b[35;0m')
+        self.assertEqual(str(s), '\x1b[1;32ma\x1b[33mb\x1b[0;34mc\x1b[35md\x1b[3;1me\x1b[m')
+        self.assertEqual(s.base_str, 'abcde')
         self.assertTrue(s.is_optimizable())
 
     def test_invalid_string_format(self):
@@ -151,6 +151,23 @@ class AnsiStringTests(unittest.TestCase):
         s = AnsiString('This string contains int formatting', [38, 2, 175, 95, 95])
         self.assertEqual(str(s), '\x1b[38;2;175;95;95mThis string contains int formatting\x1b[m')
         self.assertTrue(s.is_optimizable())
+
+    def test_to_str_no_reset_end(self):
+        s = AnsiString('This is bold', AnsiFormat.BOLD)
+        self.assertEqual(s.to_str(reset_end=False), '\x1b[1mThis is bold')
+
+    def test_to_str_reset_start(self):
+        s = AnsiString('This is bold', AnsiFormat.BOLD)
+        self.assertEqual(s.to_str(reset_start=True), '\x1b[0;1mThis is bold\x1b[m')
+
+    def test_to_str_reset_start_but_empty(self):
+        s = AnsiString('This is not bold')
+        self.assertEqual(s.to_str(reset_start=True), '\x1b[mThis is not bold')
+
+    def test_to_str_reset_start_with_formatting_in_middle(self):
+        s = AnsiString('This is partially bold')
+        s.apply_formatting(AnsiFormat.BOLD, 1)
+        self.assertEqual(s.to_str(reset_start=True), '\x1b[mT\x1b[1mhis is partially bold\x1b[m')
 
     def test_ranges(self):
         s = AnsiString('This string contains multiple color settings across different ranges')
