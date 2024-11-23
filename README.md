@@ -106,7 +106,7 @@ s = AnsiString('Manually adjust colors of foreground, background, and underline'
 print(f'{s::rgb(0x8A2BE2);bg_rgb(100, 232, 170);ul_rgb(0xFF, 0x63, 0x47)}')
 ```
 Output:
-![Example 6 Output](https://raw.githubusercontent.com/Tails86/ansi-string/76fd7fe127ab65c2b0ff5215f1b1ce9e253d50e9/docs/out6.png)
+![Example 6 Output](https://raw.githubusercontent.com/Tails86/ansi-string/8db7c31ec5cd4816db8879665e2378469a0b90bf/docs/out6.png)
 
 ### Example 7
 
