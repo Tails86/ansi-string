@@ -1974,23 +1974,23 @@ class AnsiStr(str):
         '''
         return self._s.is_optimizable()
 
-    def to_str(self, __format_spec:str=None, optimize:bool=True, reset_start:bool=False, reset_end:bool=True) -> str:
+    def to_str(self, format_spec:str=None, optimize:bool=True, reset_start:bool=False, reset_end:bool=True) -> str:
         '''
         Returns an ANSI format string with both internal and given formatting spec set.
         Parameters:
-            __format_spec - must be in the format "[string_format[:ansi_format]]" where string_format is an extension of
-                            the standard string format specifier and ansi_format contains 0 or more ansi directives
-                            separated by semicolons (;)
-                            ex: ">10:bold;red" to make output right justify with width of 10, bold and red formatting
-                            No formatting should be applied as part of the justification, add a '-' after the fillchar.
-                            ex: " ->10:bold;red" to not not apply formatting to justification characters
+            format_spec - must be in the format "[string_format[:ansi_format]]" where string_format is an extension of
+                          the standard string format specifier and ansi_format contains 0 or more ansi directives
+                          separated by semicolons (;)
+                          ex: ">10:bold;red" to make output right justify with width of 10, bold and red formatting
+                          No formatting should be applied as part of the justification, add a '-' after the fillchar.
+                          ex: " ->10:bold;red" to not not apply formatting to justification characters
             optimize - optimization selects the shortest setting string based on the situation.
                        If this is False, then the RESET directive (0) will always used when settings change mid-string.
             reset_end - when True, the output string will end with the reset RESET directive (0) when at least 1 setting
                         was applied by this AnsiString
             reset_end - when True, the output string will always end with the reset RESET directive (0)
         '''
-        return self._s.to_str(__format_spec, optimize, reset_start, reset_end)
+        return self._s.to_str(format_spec, optimize, reset_start, reset_end)
 
     def __format__(self, __format_spec:str) -> str:
         '''
