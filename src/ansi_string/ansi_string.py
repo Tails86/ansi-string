@@ -33,7 +33,7 @@ from .ansi_format import (
 )
 from .ansi_parsing import ParsedAnsiControlSequenceString, parse_graphic_sequence, settings_to_dict
 
-__version__ = '1.1.9'
+__version__ = '1.1.10'
 PACKAGE_NAME = 'ansi_string'
 
 # Constant: all characters considered to be whitespaces - this is used in strip functionality
@@ -724,47 +724,40 @@ class AnsiString:
         '''
         return self.is_formatting_parsable()
 
-    def to_str(self, __format_spec:str=None, optimize:bool=True, reset_start:bool=False, reset_end:bool=True) -> str:
+    def to_str(self, format_spec:str=None, optimize:bool=True, reset_start:bool=False, reset_end:bool=True) -> str:
         '''
         Returns an ANSI format string with both internal and given formatting spec set.
         Parameters:
-            __format_spec - must be in the format "[string_format[:ansi_format]]" where string_format is an extension of
-                            the standard string format specifier and ansi_format contains 0 or more ansi directives
-                            separated by semicolons (;)
-                            ex: ">10:bold;red" to make output right justify with width of 10, bold and red formatting
-                            No formatting should be applied as part of the justification, add a '-' after the fillchar.
-                            ex: " ->10:bold;red" to not not apply formatting to justification characters
+            format_spec - must be in the format "[string_format[:ansi_format]]" where string_format is an extension of
+                          the standard string format specifier and ansi_format contains 0 or more ansi directives
+                          separated by semicolons (;)
+                          ex: ">10:bold;red" to make output right justify with width of 10, bold and red formatting
+                          No formatting should be applied as part of the justification, add a '-' after the fillchar.
+                          ex: " ->10:bold;red" to not not apply formatting to justification characters
             optimize - optimization selects the shortest setting string based on the situation.
                        If this is False, then the RESET directive (0) will always used when settings change mid-string.
             reset_start - when True, the output string will always start with the RESET directive (0)
             reset_end - when True, the output string will end with the RESET directive (0) when at least 1 setting
                         was applied by this AnsiString
         '''
-        if not __format_spec and not self._fmts and not reset_start:
+        if not format_spec and not self._fmts and not reset_start:
             # No formatting
             return self._s
 
-        if __format_spec:
+        if format_spec:
             # Make a copy
             obj = self.copy()
 
-            format_parts = __format_spec.split(':', 2)
+            # This will allow a colon to be a fill character based on the expected format
+            format_match = re.match(r'(^.?[-\+]?[<>\^]?[0-9]*)(:.*)?$', format_spec)
 
-            # If more than 2 colons found, its meaning can be determined by ansi_format spec - if it starts with [
-            if len(format_parts) > 2:
-                if format_parts[1].endswith('['):
-                    # Third colon needs to be within ansi_format
-                    format_parts[1] = ':'.join(format_parts[1:])
-                else:
-                    # Second colon should be treated as fill character for string_format
-                    format_parts[0] = ':'.join(format_parts[0:2])
-                    format_parts[1] = format_parts[2]
-                del format_parts[2]
-            # Allow for fill char to be colon when no ansi_format is specified by looking for justification char which
-            # shouldn't exist in ansi_format spec unless it starts with [
-            elif len(format_parts) > 1 and re.match(r'^[-\+]?[<>\^]', format_parts[1]) is not None:
-                format_parts[0] = ':'.join(format_parts[0:])
-                del format_parts[1]
+            if not format_match:
+                format_parts = [format_spec]
+            elif format_match.group(2):
+                # Remove the colon from the beginning of group 2
+                format_parts = [format_match.group(1), format_match.group(2)[1:]]
+            else:
+                format_parts = [format_match.group(1)]
 
             if len(format_parts) > 1:
                 # ANSI color/style formatting
