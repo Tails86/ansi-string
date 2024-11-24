@@ -33,7 +33,7 @@ from .ansi_format import (
 )
 from .ansi_parsing import ParsedAnsiControlSequenceString, parse_graphic_sequence, settings_to_dict
 
-__version__ = '1.1.7'
+__version__ = '1.1.8'
 PACKAGE_NAME = 'ansi_string'
 
 # Constant: all characters considered to be whitespaces - this is used in strip functionality
@@ -315,8 +315,7 @@ class AnsiString:
             settings - setting or list of settings to apply
             start - The string start index where setting(s) are to be applied
             end - The string index where the setting(s) should be removed
-            topmost - When true, the settings placed at the end of the set for the given
-                      start_index, meaning it takes precedent over others; the opposite when False
+            topmost - When False, all other existing settings in this range will take precedent
         '''
         start = self._slice_val_to_idx(start, 0)
         end = self._slice_val_to_idx(end, len(self._s))
@@ -335,6 +334,17 @@ class AnsiString:
         if start not in self._fmts:
             self._fmts[start] = _AnsiSettingPoint()
         self._fmts[start].insert_settings(True, ansi_settings, topmost)
+
+        # When not topmost, do a remove and re-add of any settings that lead up to the start index
+        if not topmost:
+            remove_and_add_settings = []
+            settings_at_start = self.ansi_settings_at(start)
+            for setting in settings_at_start:
+                if setting not in self._fmts[start].add:
+                    remove_and_add_settings.append(setting)
+            if remove_and_add_settings:
+                self._fmts[start].insert_settings(False, remove_and_add_settings)
+                self._fmts[start].insert_settings(True, remove_and_add_settings)
 
         # Remove settings
         if end not in self._fmts:

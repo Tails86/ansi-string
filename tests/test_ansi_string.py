@@ -475,6 +475,29 @@ class AnsiStringTests(unittest.TestCase):
         )
         self.assertIs(s, s_orig)
 
+    def test_apply_formatting_topmost(self):
+        s = AnsiString.join('This ', AnsiString('string', AnsiFormat.BOLD))
+        s += AnsiString(' contains ') + AnsiString('multiple', AnsiFormat.BG_BLUE)
+        s += ' color settings across different ranges'
+        s.apply_formatting([AnsiFormat.FG_ORANGE, AnsiFormat.ITALIC], 21, 35)
+        s.apply_formatting(AnsiFormat.FG_BLUE, 21, 44)
+        self.assertEqual(str(s), 'This \x1b[1mstring\x1b[m contains \x1b[44;34;3mmultiple\x1b[49m color\x1b[23m settings\x1b[m across different ranges')
+
+    def test_apply_formatting_not_topmost(self):
+        s = AnsiString.join('This ', AnsiString('string', AnsiFormat.BOLD))
+        s += AnsiString(' contains ') + AnsiString('multiple', AnsiFormat.BG_BLUE)
+        s += ' color settings across different ranges'
+        s.apply_formatting([AnsiFormat.FG_ORANGE, AnsiFormat.ITALIC], 21, 35)
+        s.apply_formatting(AnsiFormat.FG_BLUE, 21, 44, topmost=False) # Should be ignored until index 35
+        self.assertEqual(str(s), 'This \x1b[1mstring\x1b[m contains \x1b[38;5;214;44;3mmultiple\x1b[49m color\x1b[0;34m settings\x1b[m across different ranges')
+
+    def test_apply_formatting_not_topmost2(self):
+        s = AnsiString.join('This ', AnsiString('string', AnsiFormat.BOLD))
+        s += AnsiString(' contains ') + AnsiString('multiple', AnsiFormat.BG_BLUE)
+        s += ' color settings across different ranges'
+        s.apply_formatting([AnsiFormat.FG_ORANGE, AnsiFormat.ITALIC], 21, 35)
+        s.apply_formatting(AnsiFormat.FG_BLUE, 30, 35, topmost=False) # Should be ignored
+        self.assertEqual(str(s), 'This \x1b[1mstring\x1b[m contains \x1b[44;38;5;214;3mmultiple\x1b[49m color\x1b[m settings across different ranges')
 
     def test_get_item_edge_case(self):
         # There used to be a bug where if a single character was retrieved right before the index where a new format was
