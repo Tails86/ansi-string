@@ -1276,7 +1276,15 @@ class AnsiString:
         start = self._slice_val_to_idx(start, 0)
         end = self._slice_val_to_idx(end, len(self._s))
 
+        # Check for invalid start/end
+        if end < start:
+            return (None, None)
+
         ansi_settings = _AnsiSettingPoint._scrub_ansi_settings(settings)
+
+        # If no settings are provided, then just return given start and end
+        if not ansi_settings:
+            return (start, end)
 
         found_start = None
         found_end = None

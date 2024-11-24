@@ -304,6 +304,7 @@ print(s)
 - `base_str`: read-only property which returns the unformatted base string
 - `ansi_settings_at()`: retrieve the settings applied over a single character
 - `settings_at()`: similar to `ansi_settings_at()`, but a single string of directives is returned
+- `find_settings()`: find start and end index of one or more settings
 - `to_str()`: convert to a str with ANSI directives applied; this contains extra output formatting attributes over `__str__()`
 
 ### Other String Methods

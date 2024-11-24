@@ -554,6 +554,12 @@ class AnsiStringTests(unittest.TestCase):
         self.assertEqual(start, 1) # Settings already exist at start
         self.assertEqual(end, None) # Settings were't removed before end
 
+    def test_find_setting_empty(self):
+        s = AnsiString('Find', AnsiFormat.BOLD, AnsiFormat.ALICE_BLUE)
+        start, end = s.find_settings([])
+        self.assertEqual(start, 0)
+        self.assertEqual(end, 4)
+
     def test_find_setting_found(self):
         s = AnsiString('Find', AnsiFormat.ALICE_BLUE) + ' '
         s += AnsiString('the', AnsiFormat.ITALIC, AnsiFormat.BG_CORAL) + ' '
