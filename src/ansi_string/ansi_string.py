@@ -1249,6 +1249,72 @@ class AnsiString:
         '''
         return ansi_sep.join([str(s) for s in self.ansi_settings_at(idx)])
 
+    def find_settings(
+        self,
+        settings:Union[AnsiFormat, AnsiSetting, str, int, list, tuple],
+        start:int=0,
+        end:int=None,
+        reverse:bool=False
+    ) -> Union[slice, None]:
+        '''
+        Find range where setting(s) are applied.
+
+        Parameters:
+            settings - the settings to search for
+            start - the starting index of the string to search
+            end - the ending index of the string to search
+            reverse - set to True to search from right-to-left instead of left-to-right
+
+        Returns a pair of values (found_start, found_end) where:
+            found_start - represents the index where all given settings are found together or None if no match found
+            found_end - represents the index where at least 1 of the given settings no longer exists or None either if
+                        found_start is None or settings were never removed before the given end index
+
+        Note: This method does not consider any optimization that may occur in the output. This only checks that the
+        settings exist, not if they are taking precedence over others or not. Call simplify() first if that is desired.
+        '''
+        start = self._slice_val_to_idx(start, 0)
+        end = self._slice_val_to_idx(end, len(self._s))
+
+        ansi_settings = _AnsiSettingPoint._scrub_ansi_settings(settings)
+
+        found_start = None
+        found_end = None
+
+        # Build a dictionary of all valid indices to applied settings at each index
+        # This is necessary in case reverse=True
+        idx_to_settings = {
+            idx:list(current_settings)
+            for idx, _, current_settings in _AnsiSettingsIterator(self._fmts)
+            if idx>=start and idx<=end
+        }
+
+        # If given start is in between format indices, check if all the settings already exist there
+        if start not in idx_to_settings:
+            current_settings = self.ansi_settings_at(start)
+            if False not in [x in current_settings for x in ansi_settings]:
+                found_start = start
+
+        # If start index not found above, search through the list in the specified order
+        if found_start is None:
+            for idx in sorted(idx_to_settings.keys(), reverse=reverse):
+                current_settings = idx_to_settings[idx]
+                # All settings must exist for this to be a valid start
+                if False not in [x in current_settings for x in ansi_settings]:
+                    found_start = idx
+                    break
+
+        # If start index is found, search for the end index, always going left-to-right from found_start
+        if found_start is not None:
+            for idx in sorted([x for x in idx_to_settings.keys() if x>found_start]):
+                current_settings = idx_to_settings[idx]
+                # At least one setting must no longer exist for this to be a valid end
+                if False in [x in current_settings for x in ansi_settings]:
+                    found_end = idx
+                    break
+
+        return (found_start, found_end)
+
     def removeprefix(self, prefix:str, inplace:bool=False) -> 'AnsiString':
         '''
         Return a str with the given prefix string removed if present.
@@ -2219,6 +2285,32 @@ class AnsiStr(str):
             idx - the index to get settings of
         '''
         return self._s.settings_at(idx)
+
+    def find_settings(
+        self,
+        settings:Union[AnsiFormat, AnsiSetting, str, int, list, tuple],
+        start:int=0,
+        end:int=None,
+        reverse:bool=False
+    ) -> Union[slice, None]:
+        '''
+        Find range where setting(s) are applied.
+
+        Parameters:
+            settings - the settings to search for
+            start - the starting index of the string to search
+            end - the ending index of the string to search
+            reverse - set to True to search from right-to-left instead of left-to-right
+
+        Returns a pair of values (found_start, found_end) where:
+            found_start - represents the index where all given settings are found together or None if no match found
+            found_end - represents the index where at least 1 of the given settings no longer exists or None either if
+                        found_start is None or settings were never removed before the given end index
+
+        Note: This method does not consider any optimization that may occur in the output. This only checks that the
+        settings exist, not if they are taking precedence over others or not. Call simplify() first if that is desired.
+        '''
+        return self._s.find_settings(settings, start, end, reverse)
 
     def removeprefix(self, prefix:str) -> 'AnsiStr':
         '''

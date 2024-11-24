@@ -324,6 +324,42 @@ class AnsiStrTests(unittest.TestCase):
         s=AnsiStr('gvcsxghfwraedtygxc', 'orange')
         self.assertEqual(s.settings_at(-1), '')
 
+    def test_find_setting_simple_found(self):
+        s = AnsiStr('Find', AnsiFormat.BOLD, AnsiFormat.ALICE_BLUE)
+        start, end = s.find_settings(AnsiFormat.BOLD)
+        self.assertEqual(start, 0)
+        self.assertEqual(end, 4)
+
+    def test_find_setting_simple_found_mid(self):
+        s = AnsiStr('Find', AnsiFormat.BOLD, AnsiFormat.ALICE_BLUE)
+        start, end = s.find_settings(AnsiFormat.BOLD, start=1, end=-1)
+        self.assertEqual(start, 1) # Settings already exist at start
+        self.assertEqual(end, None) # Settings were't removed before end
+
+    def test_find_setting_found(self):
+        s = AnsiStr('Find', AnsiFormat.BOLD, AnsiFormat.ALICE_BLUE) + ' '
+        s += AnsiStr('the', AnsiFormat.ITALIC, AnsiFormat.BG_CORAL) + ' '
+        s += AnsiStr('setting', AnsiFormat.BOLD, AnsiFormat.ANTIQUE_WHITE) + ' '
+        s += AnsiStr('that', AnsiFormat.BG_RED) + ' '
+        s += AnsiStr('is', AnsiFormat.YELLOW) + ' '
+        s += AnsiStr('matchy', AnsiFormat.BOLD, AnsiFormat.ANTIQUE_WHITE) + ' '
+        s += AnsiStr('matchy', AnsiFormat.ITALIC, AnsiFormat.ANTIQUE_WHITE) + ' '
+        start, end = s.find_settings([AnsiFormat.BOLD, AnsiFormat.ANTIQUE_WHITE])
+        self.assertEqual(start, 9)
+        self.assertEqual(end, 16)
+
+    def test_find_setting_reverse_found(self):
+        s = AnsiStr('Find', AnsiFormat.BOLD, AnsiFormat.ALICE_BLUE) + ' '
+        s += AnsiStr('the', AnsiFormat.ITALIC, AnsiFormat.BG_CORAL) + ' '
+        s += AnsiStr('setting', AnsiFormat.BOLD, AnsiFormat.ANTIQUE_WHITE) + ' '
+        s += AnsiStr('that', AnsiFormat.BG_RED) + ' '
+        s += AnsiStr('is', AnsiFormat.YELLOW) + ' '
+        s += AnsiStr('matchy', AnsiFormat.BOLD, AnsiFormat.ANTIQUE_WHITE) + ' '
+        s += AnsiStr('matchy', AnsiFormat.ITALIC, AnsiFormat.ANTIQUE_WHITE) + ' '
+        start, end = s.find_settings([AnsiFormat.BOLD, AnsiFormat.ANTIQUE_WHITE], reverse=True)
+        self.assertEqual(start, 25)
+        self.assertEqual(end, 31)
+
     def test_iterate(self):
         s = AnsiStr('one ', 'bg_yellow') + AnsiStr('two ', AnsiFormat.UNDERLINE) + AnsiStr('three', '1')
         s2 = AnsiStr()
