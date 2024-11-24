@@ -187,6 +187,34 @@ class AnsiStringTests(unittest.TestCase):
             '###############################################################This has no ANSI formatting'
         )
 
+    def test_format_colon_fillchar(self):
+        s = AnsiString('This has no ANSI formatting')
+        self.assertEqual(
+            f'{s::>90}',
+            ':::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::This has no ANSI formatting'
+        )
+
+    def test_format_colon_fillchar2(self):
+        s = AnsiString('This has no ANSI formatting')
+        self.assertEqual(
+            f'{s::->90}',
+            ':::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::This has no ANSI formatting'
+        )
+
+    def test_format_colon_fillchar3(self):
+        s = AnsiString('This has no ANSI formatting')
+        self.assertEqual(
+            f'{s::>90:}',
+            ':::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::This has no ANSI formatting'
+        )
+
+    def test_format_colon_in_ansi_settings(self):
+        s = AnsiString('ANSI string')
+        self.assertEqual(
+            f'{s::[:}',
+            '\x1b[:mANSI string\x1b[m'
+        )
+
     def test_format_right_justify_and_int(self):
         s = AnsiString('This string will be formatted bold and red, right justify')
         self.assertEqual(

@@ -33,7 +33,7 @@ from .ansi_format import (
 )
 from .ansi_parsing import ParsedAnsiControlSequenceString, parse_graphic_sequence, settings_to_dict
 
-__version__ = '1.1.8'
+__version__ = '1.1.9'
 PACKAGE_NAME = 'ansi_string'
 
 # Constant: all characters considered to be whitespaces - this is used in strip functionality
@@ -748,7 +748,23 @@ class AnsiString:
             # Make a copy
             obj = self.copy()
 
-            format_parts = __format_spec.split(':', 1)
+            format_parts = __format_spec.split(':', 2)
+
+            # If more than 2 colons found, its meaning can be determined by ansi_format spec - if it starts with [
+            if len(format_parts) > 2:
+                if format_parts[1].endswith('['):
+                    # Third colon needs to be within ansi_format
+                    format_parts[1] = ':'.join(format_parts[1:])
+                else:
+                    # Second colon should be treated as fill character for string_format
+                    format_parts[0] = ':'.join(format_parts[0:2])
+                    format_parts[1] = format_parts[2]
+                del format_parts[2]
+            # Allow for fill char to be colon when no ansi_format is specified by looking for justification char which
+            # shouldn't exist in ansi_format spec unless it starts with [
+            elif len(format_parts) > 1 and re.match(r'^[-\+]?[<>\^]', format_parts[1]) is not None:
+                format_parts[0] = ':'.join(format_parts[0:])
+                del format_parts[1]
 
             if len(format_parts) > 1:
                 # ANSI color/style formatting
