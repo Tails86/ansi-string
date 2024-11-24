@@ -555,13 +555,14 @@ class AnsiStringTests(unittest.TestCase):
         self.assertEqual(end, None) # Settings were't removed before end
 
     def test_find_setting_found(self):
-        s = AnsiString('Find', AnsiFormat.BOLD, AnsiFormat.ALICE_BLUE) + ' '
+        s = AnsiString('Find', AnsiFormat.ALICE_BLUE) + ' '
         s += AnsiString('the', AnsiFormat.ITALIC, AnsiFormat.BG_CORAL) + ' '
-        s += AnsiString('setting', AnsiFormat.BOLD, AnsiFormat.ANTIQUE_WHITE) + ' '
+        s += AnsiString('setting', AnsiFormat.ANTIQUE_WHITE) + ' '
         s += AnsiString('that', AnsiFormat.BG_RED) + ' '
         s += AnsiString('is', AnsiFormat.YELLOW) + ' '
-        s += AnsiString('matchy', AnsiFormat.BOLD, AnsiFormat.ANTIQUE_WHITE) + ' '
+        s += AnsiString('matchy', AnsiFormat.ANTIQUE_WHITE) + ' '
         s += AnsiString('matchy', AnsiFormat.ITALIC, AnsiFormat.ANTIQUE_WHITE) + ' '
+        s.apply_formatting(AnsiFormat.BOLD)
         start, end = s.find_settings([AnsiFormat.BOLD, AnsiFormat.ANTIQUE_WHITE])
         self.assertEqual(start, 9)
         self.assertEqual(end, 16)
