@@ -475,7 +475,7 @@ class AnsiStringTests(unittest.TestCase):
         )
         self.assertIs(s, s_orig)
 
-    def test_apply_formatting_topmost(self):
+    def test_apply_formatting(self):
         s = AnsiString.join('This ', AnsiString('string', AnsiFormat.BOLD))
         s += AnsiString(' contains ') + AnsiString('multiple', AnsiFormat.BG_BLUE)
         s += ' color settings across different ranges'
@@ -496,8 +496,24 @@ class AnsiStringTests(unittest.TestCase):
         s += AnsiString(' contains ') + AnsiString('multiple', AnsiFormat.BG_BLUE)
         s += ' color settings across different ranges'
         s.apply_formatting([AnsiFormat.FG_ORANGE, AnsiFormat.ITALIC], 21, 35)
+        s.apply_formatting(AnsiFormat.FG_BLUE, 30, 34, topmost=False) # Should be ignored
+        self.assertEqual(str(s), 'This \x1b[1mstring\x1b[m contains \x1b[44;38;5;214;3mmultiple\x1b[49m color\x1b[m settings across different ranges')
+
+    def test_apply_formatting_not_topmost3(self):
+        s = AnsiString.join('This ', AnsiString('string', AnsiFormat.BOLD))
+        s += AnsiString(' contains ') + AnsiString('multiple', AnsiFormat.BG_BLUE)
+        s += ' color settings across different ranges'
+        s.apply_formatting([AnsiFormat.FG_ORANGE, AnsiFormat.ITALIC], 21, 35)
         s.apply_formatting(AnsiFormat.FG_BLUE, 30, 35, topmost=False) # Should be ignored
         self.assertEqual(str(s), 'This \x1b[1mstring\x1b[m contains \x1b[44;38;5;214;3mmultiple\x1b[49m color\x1b[m settings across different ranges')
+
+    def test_apply_formatting_not_topmost4(self):
+        s = AnsiString.join('This ', AnsiString('string', AnsiFormat.BOLD))
+        s += AnsiString(' contains ') + AnsiString('multiple', AnsiFormat.BG_BLUE)
+        s += ' color settings across different ranges'
+        s.apply_formatting([AnsiFormat.FG_ORANGE, AnsiFormat.ITALIC], 21, 35)
+        s.apply_formatting(AnsiFormat.FG_BLUE, 30, 36, topmost=False) # Should be ignored until between 35 and 36
+        self.assertEqual(str(s), 'This \x1b[1mstring\x1b[m contains \x1b[44;38;5;214;3mmultiple\x1b[49m color\x1b[0;34m \x1b[msettings across different ranges')
 
     def test_get_item_edge_case(self):
         # There used to be a bug where if a single character was retrieved right before the index where a new format was
