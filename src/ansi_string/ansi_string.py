@@ -33,7 +33,7 @@ from .ansi_format import (
 )
 from .ansi_parsing import ParsedAnsiControlSequenceString, parse_graphic_sequence, settings_to_dict
 
-__version__ = '1.1.10'
+__version__ = '1.1.11'
 PACKAGE_NAME = 'ansi_string'
 
 # Constant: all characters considered to be whitespaces - this is used in strip functionality

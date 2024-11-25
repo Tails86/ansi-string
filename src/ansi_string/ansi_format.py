@@ -200,18 +200,12 @@ class _AnsiControlFn(Enum):
     BG_SET_256=([AnsiParam.BG_SET.value, 5], 1)
     BG_SET_24_BIT=([AnsiParam.BG_SET.value, 2], 3)
     BG_SET_RGB=BG_SET_24_BIT # Alias
-    SET_UNDERLINE_COLOR_256=([AnsiParam.UNDERLINE.value, AnsiParam.SET_UNDERLINE_COLOR.value, 5], 1)
+    SET_UNDERLINE_COLOR_256=([AnsiParam.SET_UNDERLINE_COLOR.value, 5], 1)
     SET_UNDERLINE_COLOUR_256=SET_UNDERLINE_COLOR_256 # Alias for my British English friends
-    SET_UNDERLINE_COLOR_24_BIT=([AnsiParam.UNDERLINE.value, AnsiParam.SET_UNDERLINE_COLOR.value, 2], 3)
+    SET_UNDERLINE_COLOR_24_BIT=([AnsiParam.SET_UNDERLINE_COLOR.value, 2], 3)
     SET_UNDERLINE_COLOUR_24_BIT=SET_UNDERLINE_COLOR_24_BIT # Alias for my British English friends
     SET_UNDERLINE_COLOR_RGB=SET_UNDERLINE_COLOR_24_BIT # Alias
     SET_UNDERLINE_COLOUR_RGB=SET_UNDERLINE_COLOR_RGB # Alias for my British English friends
-    SET_DOUBLE_UNDERLINE_COLOR_256=([AnsiParam.DOUBLE_UNDERLINE.value, AnsiParam.SET_UNDERLINE_COLOR.value, 5], 1)
-    SET_DOUBLE_UNDERLINE_COLOUR_256=SET_DOUBLE_UNDERLINE_COLOR_256 # Alias for my British English friends
-    SET_DOUBLE_UNDERLINE_COLOR_24_BIT=([AnsiParam.DOUBLE_UNDERLINE.value, AnsiParam.SET_UNDERLINE_COLOR.value, 2], 3)
-    SET_DOUBLE_UNDERLINE_COLOUR_24_BIT=SET_DOUBLE_UNDERLINE_COLOR_24_BIT # Alias for my British English friends
-    SET_DOUBLE_UNDERLINE_COLOR_RGB=SET_DOUBLE_UNDERLINE_COLOR_24_BIT # Alias
-    SET_DOUBLE_UNDERLINE_COLOUR_RGB=SET_DOUBLE_UNDERLINE_COLOR_RGB # Alias for my British English friends
 
     def __init__(self, setup_seq:List[int], num_args:int):
         '''
@@ -249,9 +243,9 @@ class _AnsiControlFn(Enum):
             b=min(255, max(0, b))
 
         if component == ColorComponentType.UNDERLINE:
-            return __class__.SET_UNDERLINE_COLOR_RGB.fn(r, g, b)
+            return [AnsiParam.UNDERLINE.value] + __class__.SET_UNDERLINE_COLOR_RGB.fn(r, g, b)
         elif component == ColorComponentType.DOUBLE_UNDERLINE:
-            return __class__.SET_DOUBLE_UNDERLINE_COLOR_RGB.fn(r, g, b)
+            return [AnsiParam.DOUBLE_UNDERLINE.value] + __class__.SET_UNDERLINE_COLOR_RGB.fn(r, g, b)
         elif component == ColorComponentType.BACKGROUND:
             return __class__.BG_SET_RGB.fn(r, g, b)
         else:
@@ -260,9 +254,9 @@ class _AnsiControlFn(Enum):
     @staticmethod
     def color256(val:int, component:ColorComponentType=ColorComponentType.FOREGROUND) -> List[int]:
         if component == ColorComponentType.UNDERLINE:
-            return __class__.SET_UNDERLINE_COLOR_256.fn(val)
+            return [AnsiParam.UNDERLINE.value] + __class__.SET_UNDERLINE_COLOR_256.fn(val)
         elif component == ColorComponentType.DOUBLE_UNDERLINE:
-            return __class__.SET_DOUBLE_UNDERLINE_COLOR_256.fn(val)
+            return [AnsiParam.DOUBLE_UNDERLINE.value] + __class__.SET_UNDERLINE_COLOR_256.fn(val)
         elif component == ColorComponentType.BACKGROUND:
             return __class__.BG_SET_256.fn(val)
         else:

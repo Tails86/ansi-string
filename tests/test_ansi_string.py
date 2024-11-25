@@ -257,6 +257,11 @@ class AnsiStringTests(unittest.TestCase):
             '************************\x1b[this is not parsedmThis string will be formatted bold and red\x1b[m************************'
         )
 
+    def test_parse_underline_rgb_parsing(self):
+        s = AnsiString('Parse from manual underline color setting', [58, 2, 255, 99, 71, 4])
+        # Was previously not parsable before fix
+        self.assertTrue(s.is_formatting_parsable())
+
     def test_no_format_and_rgb_functions(self):
         s = AnsiString('Manually adjust colors of foreground, background, and underline')
         self.assertEqual(
