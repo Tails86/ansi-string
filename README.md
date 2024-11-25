@@ -41,7 +41,7 @@ s = AnsiString('This string is red and bold', AnsiFormat.BOLD, AnsiFormat.RED)
 print(s)
 ```
 Output:
-![Example 1 Output](https://raw.githubusercontent.com/Tails86/ansi-string/8db7c31ec5cd4816db8879665e2378469a0b90bf/docs/out1.png)
+![Example 1 Output](https://raw.githubusercontent.com/Tails86/ansi-string/30f950ed81aef46e9d4ca993740f3dc8caedfdc3/docs/out1.png)
 
 ### Example 2
 
@@ -57,7 +57,7 @@ s.apply_formatting(AnsiFormat.FG_BLUE, 21, 44, topmost=False)
 print(s)
 ```
 Output:
-![Example 2 Output](https://raw.githubusercontent.com/Tails86/ansi-string/8db7c31ec5cd4816db8879665e2378469a0b90bf/docs/out2.png)
+![Example 2 Output](https://raw.githubusercontent.com/Tails86/ansi-string/30f950ed81aef46e9d4ca993740f3dc8caedfdc3/docs/out2.png)
 
 ### Example 3
 
@@ -70,7 +70,7 @@ s = AnsiString('This string will be formatted bold and red, right justify')
 print('{:>90:bold;red}'.format(s))
 ```
 Output:
-![Example 3 Output](https://raw.githubusercontent.com/Tails86/ansi-string/8db7c31ec5cd4816db8879665e2378469a0b90bf/docs/out3.png)
+![Example 3 Output](https://raw.githubusercontent.com/Tails86/ansi-string/30f950ed81aef46e9d4ca993740f3dc8caedfdc3/docs/out3.png)
 
 ### Example 4
 
@@ -82,7 +82,7 @@ s = AnsiString('This string will be formatted bold and red')
 print('{::bold;red}'.format(s))
 ```
 Output:
-![Example 4 Output](https://raw.githubusercontent.com/Tails86/ansi-string/8db7c31ec5cd4816db8879665e2378469a0b90bf/docs/out4.png)
+![Example 4 Output](https://raw.githubusercontent.com/Tails86/ansi-string/30f950ed81aef46e9d4ca993740f3dc8caedfdc3/docs/out4.png)
 
 ### Example 5
 
@@ -95,7 +95,7 @@ s2 = AnsiString('This is an ANSI string')
 print(f'String 1: "{s1}" String 2: "{s2::bold;purple}"')
 ```
 Output:
-![Example 5 Output](https://raw.githubusercontent.com/Tails86/ansi-string/8db7c31ec5cd4816db8879665e2378469a0b90bf/docs/out5.png)
+![Example 5 Output](https://raw.githubusercontent.com/Tails86/ansi-string/30f950ed81aef46e9d4ca993740f3dc8caedfdc3/docs/out5.png)
 
 ### Example 6
 
@@ -106,7 +106,7 @@ s = AnsiString('Manually adjust colors of foreground, background, and underline'
 print(f'{s::rgb(0x8A2BE2);bg_rgb(100, 232, 170);ul_rgb(0xFF, 0x63, 0x47)}')
 ```
 Output:
-![Example 6 Output](https://raw.githubusercontent.com/Tails86/ansi-string/8db7c31ec5cd4816db8879665e2378469a0b90bf/docs/out6.png)
+![Example 6 Output](https://raw.githubusercontent.com/Tails86/ansi-string/30f950ed81aef46e9d4ca993740f3dc8caedfdc3/docs/out6.png)
 
 ### Example 7
 
@@ -123,7 +123,7 @@ s.unformat_matching('unformat') # don't specify any format to remove all formatt
 print(s)
 ```
 Output:
-![Example 7 Output](https://raw.githubusercontent.com/Tails86/ansi-string/8db7c31ec5cd4816db8879665e2378469a0b90bf/docs/out7.png)
+![Example 7 Output](https://raw.githubusercontent.com/Tails86/ansi-string/30f950ed81aef46e9d4ca993740f3dc8caedfdc3/docs/out7.png)
 
 ### Example 8
 
@@ -132,13 +132,13 @@ Code:
 from ansi_string import AnsiString, AnsiFormat
 import itertools
 colors = [AnsiFormat.RED, AnsiFormat.ORANGE, AnsiFormat.YELLOW, AnsiFormat.GREEN, AnsiFormat.BLUE, AnsiFormat.INDIGO, AnsiFormat.VIOLET]
-s = AnsiString('IMAGINATION')
+s = AnsiString('IMAGINATION', AnsiFormat.BOLD)
 for i, color in zip(range(len(s)), itertools.cycle(colors)):
     s.apply_formatting(color, i, i+1)
 print(s)
 ```
 Output:
-![Example 8 Output](https://raw.githubusercontent.com/Tails86/ansi-string/8db7c31ec5cd4816db8879665e2378469a0b90bf/docs/out8.png)
+![Example 8 Output](https://raw.githubusercontent.com/Tails86/ansi-string/30f950ed81aef46e9d4ca993740f3dc8caedfdc3/docs/out8.png)
 
 ## Usage
 
@@ -254,16 +254,21 @@ ansi_str = AnsiString("This is an ANSI string")
 # Right justify with width of 100, formatted with underline and colored red.
 # By default, all fill characters will take on the first character's formatting.
 print("{:>100:underline;red}".format(ansi_str))
-# The space character after the colon is the fill character. The following minus
+
+# The character after the first colon is the fill character. The following minus
 # sign means that the fill character won't take on the first character's
 # formatting like it did above.
 print("{: ->100:underline;red}".format(ansi_str))
+
 # No justification settings, formatted bold and red
 print("{::bold;red}".format(ansi_str))
+
 # No justification settings, formatted bold and red
 print("{::bold;rgb(255, 0, 0)}".format(ansi_str))
+
 # No justification settings, formatted bold and red
 print(f"{ansi_str::bold;red}")
+
 # Format text, background, and underline with custom colors
 fg_color = 0x8A2BE2
 bg_colors = [100, 232, 170]
