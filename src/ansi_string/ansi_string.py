@@ -158,6 +158,8 @@ class AnsiString:
             - An AnsiFormat enum (ex: AnsiFormat.BOLD)
             - The result of calling AnsiFormat.rgb(), AnsiFormat.fg_rgb(), AnsiFormat.bg_rgb(),
               AnsiFormat.ul_rgb(), or AnsiFormat.dul_rgb()
+            - The result of calling AnsiFormat.color256(), AnsiFormat.fg_color256(), AnsiFormat.bg_color256(),
+              AnsiFormat.ul_color256(), AnsiFormat.dul_color256(), or *colour256() counterparts
         - The following setting types are parsed and may throw and exception if they are invalid
             - A string color or formatting name (i.e. any name of the AnsiFormat enum in lower or upper case)
             - An rgb(...) function directive as a string (ex: "rgb(255, 255, 255)")
@@ -166,8 +168,17 @@ class AnsiString:
                 - ul_rgb(...) to enable underline and set the underline color
                 - dul_rgb(...) to enable double underline and set the underline color
                 - Value given may be either a 24-bit integer or 3 x 8-bit integers, separated by commas
-                - Each given value within the parenthesis is treated as hexadecimal if the value starts with "0x",
-                  otherwise it is treated as a decimal value
+                - Each given value within the parenthesis is treated as hexadecimal if the value starts with "0x";
+                  it is otherwise treated as a decimal value
+            - A color256(...) function directive as a string (ex: "color256(255)")
+                - color256(...) or fg_color256(...) to adjust text color
+                - bg_color256(...) to adjust background color
+                - ul_color256(...) to enable underline and set the underline color
+                - dul_color256(...) to enable double underline and set the underline color
+                - Value given must be an 8-bit integer
+                - Value within the parenthesis is treated as hexadecimal if the value starts with "0x";
+                  it is otherwise treated as a decimal value
+                - Alternative spelling, "colour" may also be used
             - A string containing known ANSI directives (ex: "01;31" for BOLD and FG_RED)
                 - Only non-negative integers are valid; all other values will cause a ValueError exception
             - Integer values which will be parsed in a similar way to above string ANSI directives
