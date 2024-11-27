@@ -86,6 +86,14 @@ class AnsiStringTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             AnsiString('A', 'dul_rgb(1,2,X)')
 
+    def test_exception_string_format6(self):
+        with self.assertRaises(ValueError):
+            AnsiString('A', 'color256()')
+
+    def test_exception_string_format7(self):
+        with self.assertRaises(ValueError):
+            AnsiString('A', 'ul_colour256(W)')
+
     def test_exception_int_format(self):
         with self.assertRaises(ValueError):
             AnsiString('A', -1)
@@ -104,9 +112,9 @@ class AnsiStringTests(unittest.TestCase):
         self.assertEqual(str(s), '\x1b[1;31mThis is bold and red\x1b[m')
         self.assertTrue(s.is_optimizable())
 
-    def test_using_list_of_AnsiFormat(self):
-        s = AnsiString('This is red', AnsiFormat.rgb(255, 0, 0))
-        self.assertEqual(str(s), '\x1b[38;2;255;0;0mThis is red\x1b[m')
+    def test_using_list_of_AnsiFormat2(self):
+        s = AnsiString('This is bold and red', [AnsiFormat.BOLD, AnsiFormat.rgb(255, 0, 0)])
+        self.assertEqual(str(s), '\x1b[1;38;2;255;0;0mThis is bold and red\x1b[m')
         self.assertTrue(s.is_optimizable())
 
     def test_using_list_of_various(self):
@@ -277,6 +285,20 @@ class AnsiStringTests(unittest.TestCase):
         self.assertEqual(
             f'{s::rgb({fg_color});bg_rgb({bg_colors});ul_rgb({ul_colors})}',
             '\x1b[38;2;138;43;226;48;2;100;232;170;4;58;2;255;99;71mManually adjust colors of foreground, background, and underline\x1b[m'
+        )
+
+    def test_no_format_and_color256_functions(self):
+        s = AnsiString('Manually adjust colors of foreground, background, and underline')
+        self.assertEqual(
+            f'{s::color256(0x11);bg_color256(11);ul_color256(22)}',
+            '\x1b[38;5;17;48;5;11;4;58;5;22mManually adjust colors of foreground, background, and underline\x1b[m'
+        )
+
+    def test_no_format_and_colour256_functions(self):
+        s = AnsiString('Manually adjust colors of foreground, background, and underline')
+        self.assertEqual(
+            f'{s::colour256(0x11);bg_colour256(11);ul_colour256(22)}',
+            '\x1b[38;5;17;48;5;11;4;58;5;22mManually adjust colors of foreground, background, and underline\x1b[m'
         )
 
     def test_add(self):

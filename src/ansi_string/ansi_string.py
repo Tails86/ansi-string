@@ -1709,8 +1709,8 @@ class _AnsiSettingPoint:
 
     def __init__(
         self,
-        add:Union[List['AnsiSetting'],None]=None,
-        rem:Union[List['AnsiSetting'],None]=None
+        add:Union[List[AnsiSetting],None]=None,
+        rem:Union[List[AnsiSetting],None]=None
     ):
         self.add:List[AnsiSetting] = add or []
         self.rem:List[AnsiSetting] = rem or []
@@ -1724,7 +1724,7 @@ class _AnsiSettingPoint:
         return bool(self.add) or bool(self.rem)
 
     @staticmethod
-    def _parse_rgb_string(s:str) -> AnsiSetting:
+    def _parse_rgb_string(s:str) -> List[AnsiSetting]:
         component_dict = {
             'dul_': ColorComponentType.DOUBLE_UNDERLINE,
             'ul_': ColorComponentType.UNDERLINE,
@@ -1753,6 +1753,17 @@ class _AnsiSettingPoint:
                 raise ValueError('Invalid rgb value')
             # Get RGB format
             return AnsiFormat.rgb(rgb, component=component_dict.get(match.group(1), ColorComponentType.FOREGROUND))
+
+        # color256(), fg_color256(), bg_color256(), or ul_color256() with 1 value as decimal or hex
+        match = re.search(r'^((?:fg_)?|(?:bg_)|(?:ul_)|(?:dul_))colou?r256\([\[\()]?\s*(0x)?([0-9a-fA-F]+)\s*[\)\]]?\)$', s)
+        if match:
+            try:
+                rgb = int(match.group(3), 16 if match.group(2) else 10)
+            except ValueError:
+                raise ValueError('Invalid rgb value')
+            # Get RGB format
+            return AnsiFormat.color256(rgb, component=component_dict.get(match.group(1), ColorComponentType.FOREGROUND))
+
         return None
 
     @staticmethod
@@ -1762,7 +1773,7 @@ class _AnsiSettingPoint:
         return ansi_format
 
     @staticmethod
-    def _scrub_ansi_format_string(ansi_format:str) -> List[Union[AnsiSetting,int]]:
+    def _scrub_ansi_format_string(ansi_format:str, make_unique:bool=False) -> List[Union[AnsiSetting,int]]:
         if not ansi_format:
             # Empty string - no formats
             return []
@@ -1778,8 +1789,8 @@ class _AnsiSettingPoint:
                 try:
                     ansi_fmt_enum = AnsiFormat[format.upper().replace(' ', '_').replace('-', '_')]
                 except KeyError:
-                    rgb_format = __class__._parse_rgb_string(format)
-                    if not rgb_format:
+                    rgb_format_list = __class__._parse_rgb_string(format)
+                    if not rgb_format_list:
                         # Just ignore empty string
                         if format != '':
                             try:
@@ -1792,15 +1803,15 @@ class _AnsiSettingPoint:
                             # Value is an integer - add this to the list for later parsing
                             format_settings.append(__class__._scrub_ansi_format_int(int_value))
                     else:
-                        format_settings.append(rgb_format)
+                        format_settings += rgb_format_list
                 else:
-                    format_settings.append(ansi_fmt_enum.setting)
+                    format_settings += __class__._scrub_ansi_settings(ansi_fmt_enum.ansi_settings, make_unique)
 
             return format_settings
 
     @staticmethod
     def _scrub_ansi_settings(
-        settings:Union[List[str], str, List[int], int, List[AnsiFormat], AnsiFormat, List['AnsiSetting'], 'AnsiSetting'],
+        settings:Union[AnsiFormat, AnsiSetting, str, int, list, tuple],
         make_unique=False
     ) -> List[AnsiSetting]:
         if not isinstance(settings, list) and not isinstance(settings, tuple):
@@ -1813,11 +1824,15 @@ class _AnsiSettingPoint:
                     setting = AnsiSetting(setting)
                 settings_out.append(setting)
             elif isinstance(setting, str):
-                settings_out.extend(__class__._scrub_ansi_format_string(setting))
+                settings_out.extend(__class__._scrub_ansi_format_string(setting, make_unique))
             elif isinstance(setting, int):
                 settings_out.append(__class__._scrub_ansi_format_int(setting))
-            elif hasattr(setting, "setting"):
-                settings_out.append(setting.setting)
+            elif hasattr(setting, "ansi_settings"):
+                # Should be a list of AnsiSetting - recursive call to parse it
+                settings_out += __class__._scrub_ansi_settings(setting.ansi_settings, make_unique)
+            elif isinstance(setting, list) or isinstance(setting, tuple):
+                # Recursive call in order to completely flatten list of list of list...
+                settings_out += __class__._scrub_ansi_settings(setting, make_unique)
             else:
                 raise TypeError(f'setting is invalid type: {type(setting)}')
 
