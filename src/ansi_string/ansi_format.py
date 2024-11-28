@@ -126,7 +126,7 @@ class AnsiSetting:
         # Check all know multi-code functions for valid length
         fn_found = False
         for fn in _AnsiControlFn:
-            if codes[0:len(fn.setup_seq)] == fn.setup_seq:
+            if fn.seq_starts_with_fn(codes):
                 self._parsable = (len(codes) == fn.total_seq_count)
                 return self._parsable
             elif codes[0] == fn.setup_seq[0]:
@@ -194,33 +194,54 @@ class _AnsiControlFn(Enum):
     '''
     Special formatting directives for internal use only
     '''
-    FG_SET_256=([AnsiParam.FG_SET.value, 5], 1)
-    FG_SET_24_BIT=([AnsiParam.FG_SET.value, 2], 3)
+    FG_SET_256=((AnsiParam.FG_SET.value, 5), 1)
+    FG_SET_24_BIT=((AnsiParam.FG_SET.value, 2), 3)
     FG_SET_RGB=FG_SET_24_BIT # Alias
-    BG_SET_256=([AnsiParam.BG_SET.value, 5], 1)
-    BG_SET_24_BIT=([AnsiParam.BG_SET.value, 2], 3)
+    BG_SET_256=((AnsiParam.BG_SET.value, 5), 1)
+    BG_SET_24_BIT=((AnsiParam.BG_SET.value, 2), 3)
     BG_SET_RGB=BG_SET_24_BIT # Alias
-    SET_UNDERLINE_COLOR_256=([AnsiParam.SET_UNDERLINE_COLOR.value, 5], 1)
+    SET_UNDERLINE_COLOR_256=((AnsiParam.SET_UNDERLINE_COLOR.value, 5), 1)
     SET_UNDERLINE_COLOUR_256=SET_UNDERLINE_COLOR_256 # Alias for my British English friends
-    SET_UNDERLINE_COLOR_24_BIT=([AnsiParam.SET_UNDERLINE_COLOR.value, 2], 3)
+    SET_UNDERLINE_COLOR_24_BIT=((AnsiParam.SET_UNDERLINE_COLOR.value, 2), 3)
     SET_UNDERLINE_COLOUR_24_BIT=SET_UNDERLINE_COLOR_24_BIT # Alias for my British English friends
     SET_UNDERLINE_COLOR_RGB=SET_UNDERLINE_COLOR_24_BIT # Alias
     SET_UNDERLINE_COLOUR_RGB=SET_UNDERLINE_COLOR_RGB # Alias for my British English friends
 
-    def __init__(self, setup_seq:List[int], num_args:int):
+    def __init__(self, setup_seq:Tuple[int], num_args:int):
         '''
         Initializes this enum
         setup_seq - control sequence which addresses the function
         num_args - the number of arguments expected for the function
         '''
-        self.setup_seq = setup_seq
-        self.num_args = num_args
-        self.total_seq_count = len(setup_seq) + num_args
+        self._setup_seq:Tuple[int] = setup_seq
+        self._num_args:int = num_args
+        self._total_seq_count:int = len(setup_seq) + num_args
 
-    def fn(self, *args) -> List[int]:
+    @property
+    def setup_seq(self) -> Tuple[int]:
+        return self._setup_seq
+
+    @property
+    def num_args(self) -> int:
+        return self._num_args
+
+    @property
+    def total_seq_count(self) -> int:
+        return self._total_seq_count
+
+    def fn(self, *args) -> Tuple[int]:
         if len(args) != self.num_args:
             raise ValueError(f'Invalid number of arguments: {len(args)}; expected: {self.num_args}')
-        return self.setup_seq + list(args)
+        return self.setup_seq + tuple(args)
+
+    def seq_starts_with_fn(self, seq:Union[Tuple[int], List[int]]) -> bool:
+        ''' Returns True iff the given seq starts with this function's setup sequence. '''
+        if len(seq) < len(self.setup_seq):
+            return False
+        for mine, theirs in zip(self.setup_seq, seq):
+            if mine != theirs:
+                return False
+        return True
 
     @staticmethod
     def rgb(
@@ -1140,25 +1161,31 @@ class AnsiFormat(Enum):
         Initializes this enum
         seq - control sequence which fully specifies this setting value
         '''
+        self._ansi_settings:Tuple[AnsiSetting] = ()
         if isinstance(seq, int):
-            self.ansi_settings = [AnsiSetting(seq)]
+            self._ansi_settings = (AnsiSetting(seq),)
         elif isinstance(seq, AnsiSetting):
-            self.ansi_settings = [seq]
+            self._ansi_settings = (seq,)
         else:
             # Assume iterable item
             current_ints = []
-            self.ansi_settings = []
+            ansi_settings_list = []
             for item in seq:
                 if isinstance(item, AnsiSetting):
                     if current_ints:
-                        self.ansi_settings.append(AnsiSetting(current_ints))
+                        ansi_settings_list.append(AnsiSetting(current_ints))
                         current_ints = []
-                    self.ansi_settings.append(item)
+                    ansi_settings_list.append(item)
                 else:
                     # Assume int type
                     current_ints.append(item)
             if current_ints:
-                self.ansi_settings.append(AnsiSetting(current_ints))
+                ansi_settings_list.append(AnsiSetting(current_ints))
+            self._ansi_settings = tuple(ansi_settings_list)
+
+    @property
+    def ansi_settings(self) -> Tuple[AnsiSetting]:
+        return self._ansi_settings
 
     @staticmethod
     def rgb(

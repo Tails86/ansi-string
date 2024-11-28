@@ -33,7 +33,7 @@ from .ansi_format import (
 )
 from .ansi_parsing import ParsedAnsiControlSequenceString, parse_graphic_sequence, settings_to_dict
 
-__version__ = '1.1.11'
+__version__ = '1.1.12'
 PACKAGE_NAME = 'ansi_string'
 
 # Constant: all characters considered to be whitespaces - this is used in strip functionality
@@ -211,16 +211,8 @@ class AnsiString:
                 self._fmts[k] = _AnsiSettingPoint(list(v.add), list(v.rem))
             self._s = from_ansi_string._s
 
-        # Unpack settings
-        ansi_settings = []
-        for s in settings:
-            if not isinstance(s, list) and not isinstance(s, tuple):
-                ansi_settings.append(s)
-            else:
-                ansi_settings += s
-
-        if ansi_settings:
-            self.apply_formatting(ansi_settings)
+        if settings:
+            self.apply_formatting(settings)
 
     def assign_str(self, s:str):
         '''
@@ -1823,14 +1815,23 @@ class _AnsiSettingPoint:
     @staticmethod
     def _scrub_ansi_settings(
         settings:Union[AnsiFormat, AnsiSetting, str, int, list, tuple],
-        make_unique=False
+        make_unique=False,
+        parsed_ids:List[int]=[]
     ) -> List[AnsiSetting]:
         if not isinstance(settings, list) and not isinstance(settings, tuple):
             settings = [settings]
 
+        # Used to detect if a list contains itself
+        parsed_ids = list(parsed_ids)
+        parsed_ids.append(id(settings))
+
         settings_out = []
         for setting in settings:
-            if isinstance(setting, AnsiSetting):
+            if id(setting) in parsed_ids:
+                raise ValueError("Settings list contains itself - cannot unpack")
+            elif isinstance(setting, list) or isinstance(setting, tuple):
+                settings_out += __class__._scrub_ansi_settings(setting, make_unique, parsed_ids)
+            elif isinstance(setting, AnsiSetting):
                 if make_unique:
                     setting = AnsiSetting(setting)
                 settings_out.append(setting)
@@ -1840,14 +1841,11 @@ class _AnsiSettingPoint:
                 settings_out.append(__class__._scrub_ansi_format_int(setting))
             elif hasattr(setting, "ansi_settings"):
                 # Should be a list of AnsiSetting - recursive call to parse it
-                settings_out += __class__._scrub_ansi_settings(setting.ansi_settings, make_unique)
-            elif isinstance(setting, list) or isinstance(setting, tuple):
-                # Recursive call in order to completely flatten list of list of list...
-                settings_out += __class__._scrub_ansi_settings(setting, make_unique)
+                settings_out += __class__._scrub_ansi_settings(setting.ansi_settings, make_unique, parsed_ids)
             else:
                 raise TypeError(f'setting is invalid type: {type(setting)}')
 
-        # settings_out is not a list of AnsiSettings and integers - parse for integers and combine int AnsiSetting
+        # settings_out is now a list of AnsiSettings and integers - parse for integers and combine int AnsiSetting
         current_ints = []
         idx = 0
         while idx < len(settings_out):

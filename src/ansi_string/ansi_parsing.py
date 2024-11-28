@@ -161,7 +161,7 @@ def parse_graphic_sequence(
                 fn_set = False
                 fn_found = False
                 for fn in _AnsiControlFn:
-                    if items[idx : idx+len(fn.setup_seq)] == fn.setup_seq:
+                    if fn.seq_starts_with_fn(items):
                         left_in_set = fn.total_seq_count
                         fn_set = True
                     elif value == fn.setup_seq[0]:

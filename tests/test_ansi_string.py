@@ -102,6 +102,24 @@ class AnsiStringTests(unittest.TestCase):
         with self.assertRaises(TypeError):
             AnsiString(1)
 
+    def test_exception_recursive(self):
+        settings = [AnsiFormat.BOLD]
+        settings.append(settings)
+        with self.assertRaises(ValueError):
+            AnsiString('A', settings)
+
+    def test_exception_deep_recursive(self):
+        settings = [AnsiFormat.BOLD]
+        settings.append([[settings]])
+        with self.assertRaises(ValueError):
+            AnsiString('A', settings)
+
+    def test_no_exception_not_recursive_double_contents(self):
+        settings = [AnsiFormat.BOLD]
+        # Not advised, but this shouldn't raise any exception
+        settings = [settings, settings]
+        AnsiString('A', settings)
+
     def test_using_AnsiFormat(self):
         s = AnsiString('This is bold', AnsiFormat.BOLD)
         self.assertEqual(str(s), '\x1b[1mThis is bold\x1b[m')

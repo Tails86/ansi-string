@@ -226,10 +226,22 @@ class AnsiParam(IntEnum):
     BG_BRIGHT_WHITE=107
 
     def __init__(self, code):
-        self.code:int = code
+        self._code:int = code
         effect_settings = _ANSI_CODE_TO_EFFECT[code]
-        self.effect_type:AnsiParamEffect = effect_settings[0]
-        self.effect_fn:AnsiParamEffectFn = effect_settings[1]
+        self._effect_type:AnsiParamEffect = effect_settings[0]
+        self._effect_fn:AnsiParamEffectFn = effect_settings[1]
+
+    @property
+    def code(self) -> int:
+        return self._code
+
+    @property
+    def effect_type(self) -> AnsiParamEffect:
+        return self._effect_type
+
+    @property
+    def effect_fn(self) -> AnsiParamEffectFn:
+        return self._effect_fn
 
 
 # This dictionary has no use after AnsiParam is fully defined
