@@ -50,6 +50,7 @@ class AnsiParamEffect(Enum):
     UL_COLOUR=UL_COLOR
 
 class AnsiParamEffectFn(Enum):
+    ''' Enumerates the function of the AnsiParamEffect '''
     RESET_ALL=enum_auto()
     APPLY_SETTING=enum_auto()
     CLEAR_SETTING=enum_auto()
@@ -233,14 +234,17 @@ class AnsiParam(IntEnum):
 
     @property
     def code(self) -> int:
+        ''' The ANSI code which activates the AnsiParam type '''
         return self._code
 
     @property
     def effect_type(self) -> AnsiParamEffect:
+        ''' The type of effect group that this AnsiParam sets or clears '''
         return self._effect_type
 
     @property
     def effect_fn(self) -> AnsiParamEffectFn:
+        ''' The function of the effect_type '''
         return self._effect_fn
 
 

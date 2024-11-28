@@ -584,9 +584,13 @@ class AnsiFormat(Enum):
     FG_GRAY=_AnsiControlFn.fg_color256(244)
     FG_GREY=FG_GRAY # Alias for my British English friends
     FG_DIM_GRAY=_AnsiControlFn.fg_rgb(105, 105, 105)
+    FG_DIM_GREY=FG_DIM_GRAY
     FG_LIGHT_SLATE_GRAY=_AnsiControlFn.fg_rgb(119, 136, 153)
+    FG_LIGHT_SLATE_GREY=FG_LIGHT_SLATE_GRAY
     FG_SLATE_GRAY=_AnsiControlFn.fg_rgb(112, 128, 144)
+    FG_SLATE_GREY=FG_SLATE_GRAY
     FG_DARK_SLATE_GRAY=_AnsiControlFn.fg_rgb(47, 79, 79)
+    FG_DARK_SLATE_GREY=FG_DARK_SLATE_GRAY
 
     # Alias FG_XXX to XXX
     INDIAN_RED=FG_INDIAN_RED
@@ -860,9 +864,13 @@ class AnsiFormat(Enum):
     BG_GRAY=_AnsiControlFn.bg_color256(244)
     BG_GREY=BG_GRAY # Alias for my British English friends
     BG_DIM_GRAY=_AnsiControlFn.bg_rgb(105, 105, 105)
+    BG_DIM_GREY=BG_DIM_GRAY
     BG_LIGHT_SLATE_GRAY=_AnsiControlFn.bg_rgb(119, 136, 153)
+    BG_LIGHT_SLATE_GREY=BG_LIGHT_SLATE_GRAY
     BG_SLATE_GRAY=_AnsiControlFn.bg_rgb(112, 128, 144)
+    BG_SLATE_GREY=BG_SLATE_GRAY
     BG_DARK_SLATE_GRAY=_AnsiControlFn.bg_rgb(47, 79, 79)
+    BG_DARK_SLATE_GREY=BG_DARK_SLATE_GRAY
 
     # Enable underline and set to color
     UL_BLACK=_AnsiControlFn.ul_color256(0)
@@ -1006,9 +1014,13 @@ class AnsiFormat(Enum):
     UL_GRAY=_AnsiControlFn.ul_color256(244)
     UL_GREY=UL_GRAY # Alias for my British English friends
     UL_DIM_GRAY=_AnsiControlFn.ul_rgb(105, 105, 105)
+    UL_DIM_GREY=UL_DIM_GRAY
     UL_LIGHT_SLATE_GRAY=_AnsiControlFn.ul_rgb(119, 136, 153)
+    UL_LIGHT_SLATE_GREY=UL_LIGHT_SLATE_GRAY
     UL_SLATE_GRAY=_AnsiControlFn.ul_rgb(112, 128, 144)
+    UL_SLATE_GREY=UL_SLATE_GRAY
     UL_DARK_SLATE_GRAY=_AnsiControlFn.ul_rgb(47, 79, 79)
+    UL_DARK_SLATE_GREY=UL_DARK_SLATE_GRAY
 
     # Enable double underline and set to color
     DUL_BLACK=_AnsiControlFn.dul_color256(0)
@@ -1152,9 +1164,13 @@ class AnsiFormat(Enum):
     DUL_GRAY=_AnsiControlFn.dul_color256(244)
     DUL_GREY=DUL_GRAY # Alias for my British English friends
     DUL_DIM_GRAY=_AnsiControlFn.dul_rgb(105, 105, 105)
+    DUL_DIM_GREY=DUL_DIM_GRAY
     DUL_LIGHT_SLATE_GRAY=_AnsiControlFn.dul_rgb(119, 136, 153)
+    DUL_LIGHT_SLATE_GREY=DUL_LIGHT_SLATE_GRAY
     DUL_SLATE_GRAY=_AnsiControlFn.dul_rgb(112, 128, 144)
+    DUL_SLATE_GREY=DUL_SLATE_GRAY
     DUL_DARK_SLATE_GRAY=_AnsiControlFn.dul_rgb(47, 79, 79)
+    DUL_DARK_SLATE_GREY=DUL_DARK_SLATE_GRAY
 
     def __init__(self, seq:Union[int, AnsiSetting, List[Union[int, AnsiSetting]]]):
         '''
@@ -1185,6 +1201,7 @@ class AnsiFormat(Enum):
 
     @property
     def ansi_settings(self) -> Tuple[AnsiSetting]:
+        ''' Tuple of ANSI settings which, together, applies the AnsiFormat type '''
         return self._ansi_settings
 
     @staticmethod
