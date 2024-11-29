@@ -1829,11 +1829,7 @@ class _AnsiSettingPoint:
 
         settings_out = []
         for setting in settings:
-            if id(setting) in parsed_ids:
-                raise ValueError("Settings list contains itself - cannot unpack")
-            elif isinstance(setting, list) or isinstance(setting, tuple):
-                settings_out += __class__._scrub_ansi_settings(setting, make_unique, parsed_ids)
-            elif isinstance(setting, AnsiSetting):
+            if isinstance(setting, AnsiSetting):
                 if make_unique:
                     setting = AnsiSetting(setting)
                 settings_out.append(setting)
@@ -1841,11 +1837,20 @@ class _AnsiSettingPoint:
                 settings_out.extend(__class__._scrub_ansi_format_string(setting, make_unique))
             elif isinstance(setting, int):
                 settings_out.append(__class__._scrub_ansi_format_int(setting))
-            elif hasattr(setting, "ansi_settings"):
-                # Should be a list of AnsiSetting - recursive call to parse it
-                settings_out += __class__._scrub_ansi_settings(setting.ansi_settings, make_unique, parsed_ids)
             else:
-                raise TypeError(f'setting is invalid type: {type(setting)}')
+                if hasattr(setting, "ansi_settings"):
+                    # Should be a list of AnsiSetting - parse the setting from ansi_setting value
+                    setting = setting.ansi_settings
+                    if not isinstance(setting, list) and not isinstance(setting, tuple):
+                        raise ValueError("ansi_settings property must be list or tuple")
+                elif not isinstance(setting, list) and not isinstance(setting, tuple):
+                    raise TypeError(f'setting is invalid type: {type(setting)}')
+
+                if id(setting) in parsed_ids:
+                    raise ValueError("Settings list contains itself - cannot unpack")
+
+                # At this point, setting will be valid list or tuple - recursive call to unpack
+                settings_out += __class__._scrub_ansi_settings(setting, make_unique, parsed_ids)
 
         # settings_out is now a list of AnsiSettings and integers - parse for integers and combine int AnsiSetting
         current_ints = []
