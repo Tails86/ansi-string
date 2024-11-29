@@ -638,7 +638,7 @@ class AnsiString:
             (start, end) values where accompanying formats should be applied
         '''
         extend_formatting = True
-        match = re.search(r'^(.?)([+-]?)<([0-9]*)$', string_format)
+        match = re.search(r'^(.?)([+-]?)<([0-9]*)$', string_format) or re.search(r'^()()([0-9]*)$', string_format)
         if match:
             # Left justify
             num = match.group(3)
@@ -689,11 +689,11 @@ class AnsiString:
                 self.apply_formatting(settings)
             return
 
-        match = re.search(r'^[<>\^]?[+-]?[0-9]*$', string_format)
+        match = re.search(r'^[<>\^]?[+-][0-9]*$', string_format)
         if match:
             raise ValueError('Sign not allowed in string format specifier')
 
-        match = re.search(r'^[<>\^]?[ ]?[0-9]*$', string_format)
+        match = re.search(r'^[<>\^]?[ ][0-9]*$', string_format)
         if match:
             raise ValueError('Space not allowed in string format specifier')
 
@@ -731,12 +731,13 @@ class AnsiString:
         '''
         Returns an ANSI format string with both internal and given formatting spec set.
         Parameters:
-            format_spec - must be in the format "[string_format[:ansi_format]]" where string_format is an extension of
-                          the standard string format specifier and ansi_format contains 0 or more ansi directives
-                          separated by semicolons (;)
-                          ex: ">10:bold;red" to make output right justify with width of 10, bold and red formatting
-                          No formatting should be applied as part of the justification, add a '-' after the fillchar.
-                          ex: " ->10:bold;red" to not not apply formatting to justification characters
+            format_spec - must be in the format "[string_format[:ansi_format]]" where:
+                          - string_format is an extension of the standard string format specifier: .?[+-]?[<>^]?[0-9]*
+                            An optional + or - char may be specified after the first fill character to enable or disable
+                            formatting of the fill character (enabled by default)
+                          - ansi_format contains 0 or more ansi directives separated by semicolons (;)
+                          ex: ">10:underline;red" for right justify, width of 10, underline and red formatting
+                          ex: " ->10:underline;red" to do the same but don't extend underline across fill characters
             optimize - optimization selects the shortest setting string based on the situation.
                        If this is False, then the RESET directive (0) will always used when settings change mid-string.
             reset_start - when True, the output string will always start with the RESET directive (0)
@@ -851,12 +852,13 @@ class AnsiString:
         '''
         Returns an ANSI format string with both internal and given formatting spec set.
         Parameters:
-            __format_spec - must be in the format "[string_format[:ansi_format]]" where string_format is an extension of
-                            the standard string format specifier and ansi_format contains 0 or more ansi directives
-                            separated by semicolons (;)
-                            ex: ">10:bold;red" to make output right justify with width of 10, bold and red formatting
-                            No formatting should be applied as part of the justification, add a '-' after the fillchar.
-                            ex: " ->10:bold;red" to not not apply formatting to justification characters
+            __format_spec - must be in the format "[string_format[:ansi_format]]" where:
+                          - string_format is an extension of the standard string format specifier: .?[+-]?[<>^]?[0-9]*
+                            An optional + or - char may be specified after the first fill character to enable or disable
+                            formatting of the fill character (enabled by default)
+                          - ansi_format contains 0 or more ansi directives separated by semicolons (;)
+                          ex: ">10:underline;red" for right justify, width of 10, underline and red formatting
+                          ex: " ->10:underline;red" to do the same but don't extend underline across fill characters
         '''
         return self.to_str(__format_spec)
 

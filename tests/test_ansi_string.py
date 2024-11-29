@@ -262,6 +262,13 @@ class AnsiStringTests(unittest.TestCase):
             '\x1b[1;31mThis string will be formatted bold and red++++++++++++++++++++++++++++++++++++++++++++++++\x1b[m'
         )
 
+    def test_format_default_left_justify_and_strings(self):
+        s = AnsiString('This string will be formatted bold and red', 'bold')
+        self.assertEqual(
+            '{:90:fg_red}'.format(s),
+            '\x1b[1;31mThis string will be formatted bold and red                                                \x1b[m'
+        )
+
     def test_format_left_justify_no_extend_and_strings(self):
         s = AnsiString('This string will be formatted bold and red', 'bold')
         self.assertEqual(

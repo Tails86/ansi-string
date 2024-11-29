@@ -254,12 +254,19 @@ print(s)
 
 ### Format String
 
-A format string may be used to format an `AnsiString` or `AnsiStr` before printing. The format specification string must be in the format `"[string_format[:ansi_format]]"` where `string_format` is an extension of the standard string format specifier and `ansi_format` contains 0 or more ANSI directives separated by semicolons (;). The ANSI directives may be any of the same string values that can be passed to the `AnsiString` constructor. If no `string_format` is desired, then it can be set to an empty string.
+A format string may be used to format an `AnsiString` or `AnsiStr` before printing. The format specification string must be in the format `"[string_format[:ansi_format]]"`  where:
+- `string_format` is an extension of the standard string format specifier: `.?[+-]?[<>^]?[0-9]*`
+   - The first character is optional and is the fill character used (default: space)
+   - An optional + or - char may be specified after the first fill character to enable or disable formatting of the fill character (enabled by default)
+   - A `^`, `<`, or `>` character specified center, left, or right justification (left by default)
+   - An integer specifies the total width (0 by default)
+- `ansi_format` contains 0 or more ansi directives separated by semicolons (;). The ANSI directives may be any of the same string values that can be passed to the `AnsiString` constructor. If no `string_format` is desired, then it can be set to an empty string.
 
 Examples:
 
 ```py
 ansi_str = AnsiString("This is an ANSI string")
+
 # Right justify with width of 100, formatted with underline and colored red.
 # By default, all fill characters will take on the first character's formatting.
 print("{:>100:underline;red}".format(ansi_str))
