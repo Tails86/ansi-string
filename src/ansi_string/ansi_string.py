@@ -638,7 +638,7 @@ class AnsiString:
             (start, end) values where accompanying formats should be applied
         '''
         extend_formatting = True
-        match = re.search(r'^(.?)([+-]?)<([0-9]*)$', string_format) or re.search(r'^()()([0-9]*)$', string_format)
+        match = re.search(r'^(?:(.?)([+-]?)<)?([0-9]*)$', string_format)
         if match:
             # Left justify
             num = match.group(3)

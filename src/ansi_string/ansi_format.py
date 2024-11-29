@@ -219,17 +219,21 @@ class _AnsiControlFn(Enum):
 
     @property
     def setup_seq(self) -> Tuple[int]:
+        ''' The start of the sequence which sets up the function '''
         return self._setup_seq
 
     @property
     def num_args(self) -> int:
+        ''' Number of arguments on top of the setup sequence '''
         return self._num_args
 
     @property
     def total_seq_count(self) -> int:
+        ''' The total number of arguments in the set, including the setup sequence '''
         return self._total_seq_count
 
     def fn(self, *args) -> Tuple[int]:
+        ''' Creates and returns a sequence which executes this function with the given arguments '''
         if len(args) != self.num_args:
             raise ValueError(f'Invalid number of arguments: {len(args)}; expected: {self.num_args}')
         return self.setup_seq + tuple(args)
@@ -250,6 +254,7 @@ class _AnsiControlFn(Enum):
         b:Union[int,None]=None,
         component:ColorComponentType=ColorComponentType.FOREGROUND
     ) -> List[AnsiSetting]:
+        ''' Creates and returns a list of AnsiSettings which will apply RGB color for the selected component '''
         if r_or_rgb is None:
             raise ValueError('r_or_rgb must not be None')
         elif g is None or b is None:
@@ -282,6 +287,7 @@ class _AnsiControlFn(Enum):
 
     @staticmethod
     def color256(val:int, component:ColorComponentType=ColorComponentType.FOREGROUND) -> List[AnsiSetting]:
+        ''' Creates and returns a list of AnsiSettings which will apply 8-bit color for the selected component '''
         if component == ColorComponentType.UNDERLINE:
             return [
                 AnsiSetting(AnsiParam.UNDERLINE.value),
@@ -299,54 +305,69 @@ class _AnsiControlFn(Enum):
 
     @staticmethod
     def colour256(val:int, component:ColorComponentType=ColorComponentType.FOREGROUND) -> List[AnsiSetting]:
+        ''' Alias for color256 '''
         return __class__.color256(val, component)
 
     @staticmethod
     def fg_rgb(r_or_rgb:int, g:Union[int,None]=None, b:Union[int,None]=None) -> List[AnsiSetting]:
+        ''' Creates and returns a list of AnsiSettings which will apply RGB color for text '''
         return __class__.rgb(r_or_rgb, g, b)
 
     @staticmethod
     def bg_rgb(r_or_rgb:int, g:Union[int,None]=None, b:Union[int,None]=None) -> List[AnsiSetting]:
+        ''' Creates and returns a list of AnsiSettings which will apply RGB color for background '''
         return __class__.rgb(r_or_rgb, g, b, ColorComponentType.BACKGROUND)
 
     @staticmethod
     def ul_rgb(r_or_rgb:int, g:Union[int,None]=None, b:Union[int,None]=None) -> List[AnsiSetting]:
+        ''' Creates and returns a list of AnsiSettings which will enable underline and apply RGB color for it '''
         return __class__.rgb(r_or_rgb, g, b, ColorComponentType.UNDERLINE)
 
     @staticmethod
     def dul_rgb(r_or_rgb:int, g:Union[int,None]=None, b:Union[int,None]=None) -> List[AnsiSetting]:
+        ''' Creates and returns a list of AnsiSettings which will enable double underline and apply RGB color for it '''
         return __class__.rgb(r_or_rgb, g, b, ColorComponentType.DOUBLE_UNDERLINE)
 
     @staticmethod
     def fg_color256(val:int) -> List[AnsiSetting]:
+        ''' Creates and returns a list of AnsiSettings which will apply 8-bit color for text '''
         return __class__.color256(val)
 
     @staticmethod
     def bg_color256(val:int) -> List[AnsiSetting]:
+        ''' Creates and returns a list of AnsiSettings which will apply 8-bit color for background '''
         return __class__.color256(val, ColorComponentType.BACKGROUND)
 
     @staticmethod
     def ul_color256(val:int) -> List[AnsiSetting]:
+        ''' Creates and returns a list of AnsiSettings which will enable underline and apply 8-bit color for it '''
         return __class__.color256(val, ColorComponentType.UNDERLINE)
 
     @staticmethod
     def dul_color256(val:int) -> List[AnsiSetting]:
+        '''
+        Creates and returns a list of AnsiSettings which will enable double underline and apply 8-bit color for it
+        '''
         return __class__.color256(val, ColorComponentType.DOUBLE_UNDERLINE)
 
     @staticmethod
     def fg_colour256(val:int) -> List[AnsiSetting]:
+        ''' Alias for fg_color256 '''
         return __class__.fg_color256(val)
 
     @staticmethod
     def bg_colour256(val:int) -> List[AnsiSetting]:
+        ''' Alias for bg_color256 '''
         return __class__.bg_color256(val)
 
     @staticmethod
     def ul_colour256(val:int) -> List[AnsiSetting]:
+        ''' Alias for ul_color256 '''
         return __class__.ul_color256(val)
 
     @staticmethod
     def dul_colour256(val:int) -> List[AnsiSetting]:
+        ''' Alias for dul_color256 '''
         return __class__.dul_color256(val)
 
 class AnsiFormat(Enum):
