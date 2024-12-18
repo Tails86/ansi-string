@@ -36,7 +36,7 @@ These examples assume that ANSI formatting is enabled on the terminal. Refer to 
 
 Code:
 ```py
-from ansi_string import AnsiString
+from ansi_string import AnsiString, AnsiFormat
 s = AnsiString('This string is red and bold', AnsiFormat.BOLD, AnsiFormat.RED)
 print(s)
 ```
